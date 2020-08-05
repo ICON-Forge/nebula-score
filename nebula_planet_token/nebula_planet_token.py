@@ -37,13 +37,8 @@ class IRC3(ABC):
         pass
 
 class IRC3Metadata(ABC):
-
     @abstractmethod
     def tokenURI(self, _tokenId: int) -> str:
-        """
-        A distinct Uniform Resource Identifier (URI) for a given asset.
-        See "IRC3 Metadata JSON Schema" format for details about the format.
-        """
         pass
 
 # class IRC3Enumerable(ABC):
@@ -72,7 +67,7 @@ class IRC3Metadata(ABC):
 #         """
 #         pass
 
-class NebulaPlanetToken(IconScoreBase, IRC3):
+class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count against token owners
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
     _TOKEN_APPROVALS = 'token_approvals'  # Track token approved owner against token ID
@@ -95,16 +90,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3):
 
     @external(readonly=True)
     def name(self) -> str:
-        """
-        Returns the name of the token. e.g. CryptoBears.
-        """
         return "NebulaPlanetToken"
 
     @external(readonly=True)
     def symbol(self) -> str:
-        """
-        Returns the symbol of the token. e.g. CBT.
-        """
         return "NPT"
 
     @external(readonly=True)
@@ -219,6 +208,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3):
     def _burn(self, _owner: Address, _tokenId: int):
         self._clear_approval(_tokenId)
         self._remove_tokens_from(_owner, _tokenId)
+        self._removeTokenUri(_tokenId)
         self.Transfer(_owner, self._ZERO_ADDRESS, _tokenId)
 
     def _is_zero_address(self, _address: Address) -> bool:
@@ -249,6 +239,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3):
 
     @external(readonly=True)
     def tokenURI(self, _tokenId: int) -> str:
+        """
+        A distinct Uniform Resource Identifier (URI) for a given asset.
+        See "IRC3 Metadata JSON Schema" format for details about the format.
+        """
         self._ensure_positive(_tokenId)
 
         tokenURI = self._tokenURIs[_tokenId]
@@ -259,13 +253,18 @@ class NebulaPlanetToken(IconScoreBase, IRC3):
 
         return tokenURI
 
-    @external
     def _setTokenUri(self, _tokenId: int, _tokenURI: str):
         """
         Set token URI for a given token. Reverts if a token does not exist.
         """
         self._ensure_positive(_tokenId)
         self._tokenURIs[_tokenId] = _tokenURI
+
+    def _removeTokenUri(self, _tokenId: int):
+        """
+        Remove token URI for a given token
+        """
+        del self._tokenURIs[_tokenId]
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):
