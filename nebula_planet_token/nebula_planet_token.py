@@ -3,7 +3,7 @@ from iconservice import *
 TAG = 'NebulaPlanetToken'
 
 
-class TokenStandard(ABC):
+class IRC3(ABC):
     @abstractmethod
     def name(self) -> str:
         pass
@@ -36,8 +36,43 @@ class TokenStandard(ABC):
     def transferFrom(self, _from: Address, _to: Address, _tokenId: int):
         pass
 
+class IRC3Metadata(ABC):
 
-class NebulaPlanetToken(IconScoreBase, TokenStandard):
+    @abstractmethod
+    def tokenURI(self, _tokenId: Address) -> str:
+        """
+        A distinct Uniform Resource Identifier (URI) for a given asset.
+        See "IRC3 Metadata JSON Schema" format for details about the format.
+        """
+        pass
+
+class IRC3Enumerable(ABC):
+    @abstractmethod
+    def totalSupply(self) -> int:
+        """
+        Returns count of valid NFTs tracked by this contract.
+        """
+        pass
+
+
+    @abstractmethod
+    def tokenByIndex(self, _index: int) -> int:
+        """
+        Returns the _tokenId for '_index'th NFT.
+        Throws if _index >= totalSupply()
+        """
+        pass
+
+
+    @abstractmethod
+    def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
+        """
+        Returns the _tokenId for '_index'th NFT assigned to _owner.
+        Throws if _index >= balanceOf(_owner)
+        """
+        pass
+
+class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count against token owners
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
     _TOKEN_APPROVALS = 'token_approvals'  # Track token approved owner against token ID
