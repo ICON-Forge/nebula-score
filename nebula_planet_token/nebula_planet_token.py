@@ -39,43 +39,44 @@ class IRC3(ABC):
 class IRC3Metadata(ABC):
 
     @abstractmethod
-    def tokenURI(self, _tokenId: Address) -> str:
+    def tokenURI(self, _tokenId: int) -> str:
         """
         A distinct Uniform Resource Identifier (URI) for a given asset.
         See "IRC3 Metadata JSON Schema" format for details about the format.
         """
         pass
 
-class IRC3Enumerable(ABC):
-    @abstractmethod
-    def totalSupply(self) -> int:
-        """
-        Returns count of valid NFTs tracked by this contract.
-        """
-        pass
+# class IRC3Enumerable(ABC):
+#     @abstractmethod
+#     def totalSupply(self) -> int:
+#         """
+#         Returns count of valid NFTs tracked by this contract.
+#         """
+#         pass
+#
+#
+#     @abstractmethod
+#     def tokenByIndex(self, _index: int) -> int:
+#         """
+#         Returns the _tokenId for '_index'th NFT.
+#         Throws if _index >= totalSupply()
+#         """
+#         pass
+#
+#
+#     @abstractmethod
+#     def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
+#         """
+#         Returns the _tokenId for '_index'th NFT assigned to _owner.
+#         Throws if _index >= balanceOf(_owner)
+#         """
+#         pass
 
-
-    @abstractmethod
-    def tokenByIndex(self, _index: int) -> int:
-        """
-        Returns the _tokenId for '_index'th NFT.
-        Throws if _index >= totalSupply()
-        """
-        pass
-
-
-    @abstractmethod
-    def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
-        """
-        Returns the _tokenId for '_index'th NFT assigned to _owner.
-        Throws if _index >= balanceOf(_owner)
-        """
-        pass
-
-class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
+class NebulaPlanetToken(IconScoreBase, IRC3):
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count against token owners
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
     _TOKEN_APPROVALS = 'token_approvals'  # Track token approved owner against token ID
+    _TOKEN_URIS = 'token_URIs'  # Track token URIs against token ID
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
@@ -84,6 +85,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         self._ownedTokenCount = DictDB(self._OWNED_TOKEN_COUNT, db, value_type=int)
         self._tokenOwner = DictDB(self._TOKEN_OWNER, db, value_type=Address)
         self._tokenApprovals = DictDB(self._TOKEN_APPROVALS, db, value_type=Address)
+        self._tokenURIs = DictDB(self._TOKEN_URIS, db, value_type=str)
 
     def on_install(self) -> None:
         super().on_install()
@@ -196,13 +198,15 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         Logger.debug(f'Transfer({_from}, {_to}, {_tokenId}, TAG)')
 
     @external
-    def mint(self, _to: Address, _tokenId: int):
+    def mint(self, _to: Address, _tokenId: int, _tokenUri: str):
         # Mint a new NFT token
+        self._ensure_positive(_tokenId)
         if self.msg.sender != self.owner:
             revert("You don't have permission to mint NFT")
         if _tokenId in self._tokenOwner:
             revert("Token already exists")
         self._add_tokens_to(_to, _tokenId)
+        self._setTokenUri(_tokenId, _tokenUri)
         self.Transfer(self._ZERO_ADDRESS, _to, _tokenId)
 
     @external
@@ -242,6 +246,26 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         # Add token to new owner and increase token count of owner by 1
         self._tokenOwner[_tokenId] = _to
         self._ownedTokenCount[_to] += 1
+
+    @external(readonly=True)
+    def tokenURI(self, _tokenId: int) -> str:
+        self._ensure_positive(_tokenId)
+
+        tokenURI = self._tokenURIs[_tokenId]
+        if tokenURI is None:
+            revert("NFT with given _tokenId does not have metadata")
+        if self._is_zero_address(tokenURI):
+            revert("Invalid _tokenId. NFT is burned")
+
+        return tokenURI
+
+    @external
+    def _setTokenUri(self, _tokenId: int, _tokenURI: str):
+        """
+        Set token URI for a given token. Reverts if a token does not exist.
+        """
+        self._ensure_positive(_tokenId)
+        self._tokenURIs[_tokenId] = _tokenURI
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):
