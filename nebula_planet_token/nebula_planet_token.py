@@ -57,7 +57,7 @@ class IRC3Metadata(ABC):
 #         Throws if _index >= totalSupply()
 #         """
 #         pass
-#
+
 #
 #     @abstractmethod
 #     def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
@@ -72,6 +72,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
     _TOKEN_APPROVALS = 'token_approvals'  # Track token approved owner against token ID
     _TOKEN_URIS = 'token_URIs'  # Track token URIs against token ID
+    _OWNED_TOKENS = 'owned_tokens'  # Track tokens against token owners
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
@@ -81,6 +82,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         self._tokenOwner = DictDB(self._TOKEN_OWNER, db, value_type=Address)
         self._tokenApprovals = DictDB(self._TOKEN_APPROVALS, db, value_type=Address)
         self._tokenURIs = DictDB(self._TOKEN_URIS, db, value_type=str)
+        self._ownedTokens = DictDB(self._OWNED_TOKENS, db, value_type=str, depth=2)
 
     def on_install(self) -> None:
         super().on_install()
@@ -226,16 +228,48 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         if _tokenId in self._tokenApprovals:
             del self._tokenApprovals[_tokenId]
 
-    def _remove_tokens_from(self, _from: Address, _tokenId: int):
-        # Remove token ownership and subtract owner's token count by 1
-        # Must ensure owner's permission before calling this function
-        self._ownedTokenCount[_from] -= 1
-        self._tokenOwner[_tokenId] = self._ZERO_ADDRESS
 
     def _add_tokens_to(self, _to: Address, _tokenId: int):
         # Add token to new owner and increase token count of owner by 1
         self._tokenOwner[_tokenId] = _to
         self._ownedTokenCount[_to] += 1
+
+        # for enumerable:
+        index = self._ownedTokenCount[_to]
+        print("adding " + str(_to) + "to ownedTokens on index: " + str(index))
+        self._ownedTokens[str(_to)][str(index)] = str(_tokenId)
+        print("print dict")
+        print(self._ownedTokens[str(_to)][str(index)])
+
+    def _remove_tokens_from(self, _from: Address, _tokenId: int):
+        # Remove token ownership and subtract owner's token count by 1
+        # Must ensure owner's permission before calling this function
+        self._ownedTokenCount[_from] -= 1
+        self._tokenOwner[_tokenId] = self._ZERO_ADDRESS
+        
+    @external(readonly=True)
+    def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
+        """
+        Returns _tokenId assigned to the _owner on a given _index.
+        Throws if _owner does not exist or if _index is out of bounds.
+        """
+        result = self._ownedTokens[str(_owner)][str(_index)]
+        if result:
+            return int(result)
+        else:
+            revert("No token found for this owner on a given index")
+
+    @external(readonly=True)
+    def ownedTokens(self, _owner: Address) -> list:
+        """
+        Returns an unsorted list of tokens owned by _owner.
+        """
+        numberOfTokens = self.balanceOf(_owner)
+        ownedTokens = []
+        for x in range(1, numberOfTokens + 1):
+            ownedTokens.append(self.tokenOfOwnerByIndex(_owner, x))
+
+        return ownedTokens
 
     @external(readonly=True)
     def tokenURI(self, _tokenId: int) -> str:
