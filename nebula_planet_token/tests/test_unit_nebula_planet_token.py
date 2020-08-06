@@ -85,6 +85,12 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Invalid _tokenId. NFT is not minted")
 
+    def test_get_tokenURI(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+
+        self.assertEqual(self.score.tokenURI(1), "http://www.example.com/1")
+
     def test_get_tokenOfOwnerByIndex(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
@@ -101,11 +107,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_error_tokenOfOwnerByIndex(self):
         with self.assertRaises(IconScoreException) as e:
-            print(self.score.tokenOfOwnerByIndex(self.test_account1, 5))
+            self.score.tokenOfOwnerByIndex(self.test_account1, 5)
 
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "No token found for this owner on a given index")
-
 
     def test_get_ownedTokens(self):
         self.set_msg(self.test_account1)
@@ -117,4 +122,22 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.ownedTokens(self.test_account1), expectedAccount1Tokens)
         self.assertEqual(self.score.ownedTokens(self.test_account2), expectedAccount2Tokens)
 
+    def test_get_findTokenIndexByTokenId(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+
+        self.assertEqual(self.score._findTokenIndexByTokenId(self.test_account1, 12), 2)
+
+    def test_emptyResult_findTokenIndexByTokenId(self):
+        self.assertEqual(self.score._findTokenIndexByTokenId(self.test_account1, 99), 0)
+
+    # def test_set_removeTokensFrom(self):
+    #     self.set_msg(self.test_account1)
+    #     self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+    #     self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+    #     self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+    #
+    #     self.assertEqual(self.score._remove_tokens_from(self.test_account1, 13), 2)
 

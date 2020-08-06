@@ -242,11 +242,36 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         print(self._ownedTokens[str(_to)][str(index)])
 
     def _remove_tokens_from(self, _from: Address, _tokenId: int):
+        # TODO: Maybe check for ownerOf against _from... double check if necessary
+        # enumerable:
+        # print(self.ownedTokens(_from))
+        # tokenCount = str(self.balanceOf(_from))
+        # lastToken = self._ownedTokens[str(_from)][tokenCount]
+        # index = self._findTokenIndexByTokenId(_from, _tokenId)
+        # del self._ownedTokens[str(_from)][str(index)]
+        # self._ownedTokens[str(_from)][str(index)] = lastToken
+        # del self._ownedTokens[str(_from)][tokenCount]
+        # print(self.ownedTokens(_from))
+
+
         # Remove token ownership and subtract owner's token count by 1
         # Must ensure owner's permission before calling this function
         self._ownedTokenCount[_from] -= 1
         self._tokenOwner[_tokenId] = self._ZERO_ADDRESS
-        
+
+
+
+    def _findTokenIndexByTokenId(self, _owner: Address, _tokenId: int) -> int:
+        """
+        Returns index of a given _tokenId of _owner.
+        Returns 0 when no result.
+        """
+        numberOfTokens = self.balanceOf(_owner)
+        for x in range(1, numberOfTokens + 1):
+            if (self.tokenOfOwnerByIndex(_owner, x) == _tokenId):
+                return x
+        return 0
+
     @external(readonly=True)
     def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
         """
