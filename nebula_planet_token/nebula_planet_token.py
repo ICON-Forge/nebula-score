@@ -67,6 +67,15 @@ class IRC3Metadata(ABC):
 #         """
 #         pass
 
+# class TokenIndexFactory:
+#
+#
+class TokenIndex(object):
+    def __init__(self, address: Address, tokenIndex: int, db: IconScoreDatabase):
+        super().__init__(db)
+        self._ownedTokens = VarDB(f'{str(address)}_{str(tokenIndex)}', db, value_type=str).set()
+        self._db = db
+
 class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count against token owners
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
@@ -83,6 +92,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         self._tokenApprovals = DictDB(self._TOKEN_APPROVALS, db, value_type=Address)
         self._tokenURIs = DictDB(self._TOKEN_URIS, db, value_type=str)
         self._ownedTokens = DictDB(self._OWNED_TOKENS, db, value_type=str, depth=2)
+        self._db = db
 
     def on_install(self) -> None:
         super().on_install()
@@ -228,6 +238,19 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         if _tokenId in self._tokenApprovals:
             del self._tokenApprovals[_tokenId]
 
+    def _setTokenIndex(self, _address: Address, _index: int, _tokenId: int):
+        VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).set(str(_tokenId))
+
+    def _getTokenIndex(self, _address: Address, _index: int) -> int:
+        result = VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).get()
+        if result:
+            return int(result)
+        else:
+            return 0 # TODO: Or throw?
+
+    def _removeTokenIndex(self, _address: Address, _index: int):
+        VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).remove()
+
 
     def _add_tokens_to(self, _to: Address, _tokenId: int):
         # Add token to new owner and increase token count of owner by 1
@@ -237,7 +260,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         # for enumerable:
         index = self._ownedTokenCount[_to]
         print("adding " + str(_to) + "to ownedTokens on index: " + str(index))
-        self._ownedTokens[str(_to)][str(index)] = str(_tokenId)
+        # self._ownedTokens = VarDB(f'{self._address}_{self._ownedTokens}', db, value_type=str)
+        self._setTokenIndex(_to, index, _tokenId)
+        # self._ownedTokens[str(_to)][str(index)] = str(_tokenId)
         print("print dict")
         print(self._ownedTokens[str(_to)][str(index)])
 
@@ -245,9 +270,13 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         # TODO: Maybe check for ownerOf against _from... double check if necessary
         # enumerable:
         # print(self.ownedTokens(_from))
-        # tokenCount = str(self.balanceOf(_from))
-        # lastToken = self._ownedTokens[str(_from)][tokenCount]
-        # index = self._findTokenIndexByTokenId(_from, _tokenId)
+
+        lastIndex = self.balanceOf(_from)
+        lastToken = self._getTokenIndex(_from, lastIndex)
+        index = self._findTokenIndexByTokenId(_from, _tokenId)
+        self._setTokenIndex(_from, index, lastToken)
+        self._removeTokenIndex(_from, lastIndex)
+
         # del self._ownedTokens[str(_from)][str(index)]
         # self._ownedTokens[str(_from)][str(index)] = lastToken
         # del self._ownedTokens[str(_from)][tokenCount]
@@ -268,7 +297,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         """
         numberOfTokens = self.balanceOf(_owner)
         for x in range(1, numberOfTokens + 1):
-            if (self.tokenOfOwnerByIndex(_owner, x) == _tokenId):
+            if self.tokenOfOwnerByIndex(_owner, x) == _tokenId:
                 return x
         return 0
 
@@ -278,7 +307,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata):
         Returns _tokenId assigned to the _owner on a given _index.
         Throws if _owner does not exist or if _index is out of bounds.
         """
-        result = self._ownedTokens[str(_owner)][str(_index)]
+        result = self._getTokenIndex(_owner, _index)
         if result:
             return int(result)
         else:
