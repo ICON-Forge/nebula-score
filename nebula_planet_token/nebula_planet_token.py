@@ -2,7 +2,6 @@ from iconservice import *
 
 TAG = 'NebulaPlanetToken'
 
-
 class IRC3(ABC):
     @abstractmethod
     def name(self) -> str:
@@ -50,18 +49,10 @@ class IRC3Enumerable(ABC):
 
     @abstractmethod
     def tokenByIndex(self, _index: int) -> int:
-        """
-        Returns the _tokenId for '_index'th NFT.
-        Throws if _index >= totalSupply()
-        """
         pass
 
     @abstractmethod
     def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
-        """
-        Returns the _tokenId for '_index'th NFT assigned to _owner.
-        Throws if _index >= balanceOf(_owner)
-        """
         pass
 
 
@@ -84,7 +75,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._tokenApprovals = DictDB(self._TOKEN_APPROVALS, db, value_type=Address)
         self._tokenURIs = DictDB(self._TOKEN_URIS, db, value_type=str)
         self._totalSupply = VarDB(self._TOTAL_SUPPLY, db, value_type=int)
-        # self._totalSupply = VarDB(self._TOTAL_SUPPLY, db, value_type=int)
 
         self._db = db
 
@@ -202,7 +192,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert("Token already exists")
         self._add_tokens_to(_to, _tokenId)
         self._setTokenUri(_tokenId, _tokenUri)
-        self._incrementTotalSupply(_tokenId)
+        self._createNewTokenIndex(_tokenId)
         self.Transfer(self._ZERO_ADDRESS, _to, _tokenId)
 
     @external
@@ -217,7 +207,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._remove_tokens_from(_owner, _tokenId)
         self._removeTokenUri(_tokenId)
         tokenIndex = self._getTokenIndexByTokenId(_tokenId)
-        self._decrementTotalSupply(tokenIndex)
+        self._adjustTokenIndex(tokenIndex)
         self.Transfer(_owner, self._ZERO_ADDRESS, _tokenId)
 
     def _is_zero_address(self, _address: Address) -> bool:
@@ -234,158 +224,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         # Delete token's approved operator
         if _tokenId in self._tokenApprovals:
             del self._tokenApprovals[_tokenId]
-
-    def _setOwnerTokenIndex(self, _address: Address, _index: int, _tokenId: int):
-        VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).set(str(_tokenId))
-
-    def _getOwnerTokenIndex(self, _address: Address, _index: int) -> int:
-        # TODO: Move into tokenOfOwnerByIndex
-        result = VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).get()
-        if result:
-            return int(result)
-        else:
-            return 0  # TODO: Or throw?
-
-    def _removeOwnerTokenIndex(self, _address: Address, _index: int):
-        VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).remove()
-
-    @external(readonly=True)
-    def tokenByIndex(self, _index: int) -> int:
-        result = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
-        if result:
-            return result
-        else:
-            return 0  # TODO: Or throw?
-
-    def _getTokenIndexByTokenId(self, _tokenId: int) -> int:
-        result = VarDB(f'TOKEN_{str(_tokenId)}', self._db, value_type=int).get()
-        if result:
-            return result
-        else:
-            return 0  # TODO: Or throw?
-
-    def _setTokenIndex(self, _index: int, _tokenId: int):
-        VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).set(_tokenId)
-        VarDB(f'TOKEN_{str(_tokenId)}', self._db, value_type=int).set(_index)
-
-    def _removeTokenIndex(self, _index: int):
-        tokenId = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
-        VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).remove()
-        VarDB(f'TOKEN_{str(tokenId)}', self._db, value_type=int).remove()
-        initTokenIndex = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
-        initToken = VarDB(f'TOKEN_{str(tokenId)}', self._db, value_type=int).get()
-        print(1)
-
-    def _add_tokens_to(self, _to: Address, _tokenId: int):
-        # Add token to new owner and increase token count of owner by 1
-        self._tokenOwner[_tokenId] = _to
-        self._ownedTokenCount[_to] += 1
-
-        # for enumerable:
-        index = self._ownedTokenCount[_to]
-        self._setOwnerTokenIndex(_to, index, _tokenId)
-
-    def _remove_tokens_from(self, _from: Address, _tokenId: int):
-        # Replaces token on last index with the token that will be removed.
-        lastIndex = self.balanceOf(_from)
-        lastToken = self._getOwnerTokenIndex(_from, lastIndex)
-        index = self._findTokenIndexByTokenId(_from, _tokenId)
-        self._setOwnerTokenIndex(_from, index, lastToken)
-        self._removeOwnerTokenIndex(_from, lastIndex)
-
-        # Remove token ownership and subtract owner's token count by 1
-        # Must ensure owner's permission before calling this function
-        self._ownedTokenCount[_from] -= 1
-        self._tokenOwner[_tokenId] = self._ZERO_ADDRESS
-
-    @external(readonly=True)
-    def totalSupply(self) -> int:
-        """
-        Returns total number of valid NFTs.
-        """
-        return self._totalSupply.get()
-
-    def _incrementTotalSupply(self, _tokenId: int):
-        newSupply = self._totalSupply.get() + 1
-        self._setTokenIndex(newSupply, _tokenId)
-        temp = self._totalSupply.get()
-        self._totalSupply.set(newSupply)
-
-    def _decrementTotalSupply(self, _tokenIndex: int):
-        lastIndex = self.totalSupply()
-        lastToken = self.tokenByIndex(lastIndex)
-
-        # Remove token indexes that are being operated with
-        self._removeTokenIndex(_tokenIndex)
-        self._removeTokenIndex(lastIndex)
-
-        # Replaces token on last index with the token that will be removed.
-        self._setTokenIndex(_tokenIndex, lastToken)
-        # self._set
-
-        tokenId = self.tokenByIndex(_tokenIndex)
-        initTokenIndex = VarDB(f'INDEX_{str(_tokenIndex)}', self._db, value_type=int).get()
-        initToken = VarDB(f'TOKEN_{str(tokenId)}', self._db, value_type=int).get()
-        initToken2 = VarDB(f'TOKEN_12', self._db, value_type=int).get()
-        print("id :{0}".format(str(id)))
-
-        self._decr()
-        newSupply = self._totalSupply.get() - 1
-        print(1)
-        # self._clearTotalSupply()
-        # self._totalSupply.set(newSupply)
-        print(1)
-
-    def _decr(self):
-        newSupply = self._totalSupply.get() - 1
-        self._totalSupply.remove()
-        self._totalSupply.set(newSupply)
-
-    def _incr(self):
-        newSupply = self._totalSupply.get() + 1
-        self._totalSupply.remove()
-        self._totalSupply.set(newSupply)
-
-    def _findTokenIndexByTokenId(self, _owner: Address, _tokenId: int) -> int:
-        """
-        Returns index of a given _tokenId of _owner.
-        Returns 0 when no result.
-        """
-        numberOfTokens = self.balanceOf(_owner)
-        for x in range(1, numberOfTokens + 1):
-            if self.tokenOfOwnerByIndex(_owner, x) == _tokenId:
-                return x
-        return 0
-
-    @external(readonly=True)
-    def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
-        """
-        Returns _tokenId assigned to the _owner on a given _index.
-        Throws if _owner does not exist or if _index is out of bounds.
-        """
-        # TODO: check balanceOf
-
-        result = VarDB(f'{str(_owner)}_{str(_index)}', self._db, value_type=str).get()
-        if result:
-            return int(result)
-        else:
-            revert("No token found for this owner on a given index")
-        # if result:
-        #     return int(result)
-        # else:
-        #     revert("No token found for this owner on a given index")
-
-    @external(readonly=True)
-    def ownedTokens(self, _owner: Address) -> list:
-        """
-        Returns an unsorted list of tokens owned by _owner.
-        """
-        numberOfTokens = self.balanceOf(_owner)
-        ownedTokens = []
-        for x in range(1, numberOfTokens + 1):
-            ownedTokens.append(self.tokenOfOwnerByIndex(_owner, x))
-
-        return ownedTokens
 
     @external(readonly=True)
     def tokenURI(self, _tokenId: int) -> str:
@@ -411,10 +249,126 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._tokenURIs[_tokenId] = _tokenURI
 
     def _removeTokenUri(self, _tokenId: int):
-        """
-        Remove token URI for a given token
-        """
         del self._tokenURIs[_tokenId]
+
+    @external(readonly=True)
+    def ownedTokens(self, _owner: Address) -> list:
+        """
+        Returns an unsorted list of tokens owned by _owner.
+        """
+        numberOfTokens = self.balanceOf(_owner)
+        ownedTokens = []
+        for x in range(1, numberOfTokens + 1):
+            ownedTokens.append(self.tokenOfOwnerByIndex(_owner, x))
+
+        return ownedTokens
+
+    @external(readonly=True)
+    def totalSupply(self) -> int:
+        """
+        Returns total number of valid NFTs.
+        """
+        return self._totalSupply.get()
+
+    def _decrementTotalSupply(self):
+        self._totalSupply.set(self._totalSupply.get() - 1)
+
+    def _incrementTotalSupply(self):
+        self._totalSupply.set(self._totalSupply.get() + 1)
+
+    def _add_tokens_to(self, _to: Address, _tokenId: int):
+        # Add token to new owner and increase token count of owner by 1
+        self._tokenOwner[_tokenId] = _to
+        self._ownedTokenCount[_to] += 1
+
+        # Add an index to the token for the owner
+        index = self._ownedTokenCount[_to]
+        self._setOwnerTokenIndex(_to, index, _tokenId)
+
+    def _remove_tokens_from(self, _from: Address, _tokenId: int):
+        # Replaces token on last index with the token that will be removed.
+        lastIndex = self.balanceOf(_from)
+        lastToken = self.tokenOfOwnerByIndex(_from, lastIndex)
+        index = self._findTokenIndexByTokenId(_from, _tokenId)
+        self._setOwnerTokenIndex(_from, index, lastToken)
+        self._removeOwnerTokenIndex(_from, lastIndex)
+
+        # Remove token ownership and subtract owner's token count by 1
+        self._ownedTokenCount[_from] -= 1
+        self._tokenOwner[_tokenId] = self._ZERO_ADDRESS
+
+    @external(readonly=True)
+    def tokenByIndex(self, _index: int) -> int:
+        """
+        Returns the _tokenId for '_index'th NFT. Returns 0 for invalid result.
+        """
+        result = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
+        if result:
+            return result
+        else:
+            return 0
+
+    def _createNewTokenIndex(self, _tokenId: int):
+        """
+        Creates an index for _tokenId and increases _totalSupply
+        """
+        newSupply = self._totalSupply.get() + 1
+        self._setTokenIndex(newSupply, _tokenId)
+        self._incrementTotalSupply()
+
+    def _adjustTokenIndex(self, _tokenIndex: int):
+        """
+        Lowers _totalSupply and makes sure all tokens are indexed by moving
+        token with last index to the index that is being removed.
+        """
+        lastIndex = self.totalSupply()
+        lastToken = self.tokenByIndex(lastIndex)
+        self._removeTokenIndex(_tokenIndex)
+        self._removeTokenIndex(lastIndex)
+        self._setTokenIndex(_tokenIndex, lastToken)
+        self._decrementTotalSupply()
+
+    def _getTokenIndexByTokenId(self, _tokenId: int) -> int:
+        result = VarDB(f'TOKEN_{str(_tokenId)}', self._db, value_type=int).get()
+        if result:
+            return result
+        else:
+            return 0
+
+    def _setTokenIndex(self, _index: int, _tokenId: int):
+        VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).set(_tokenId)
+        VarDB(f'TOKEN_{str(_tokenId)}', self._db, value_type=int).set(_index)
+
+    def _removeTokenIndex(self, _index: int):
+        tokenId = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
+        VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).remove()
+        VarDB(f'TOKEN_{str(tokenId)}', self._db, value_type=int).remove()
+
+    def _findTokenIndexByTokenId(self, _owner: Address, _tokenId: int) -> int:
+        # Returns index of a given _tokenId of _owner. Returns 0 when no result.
+        numberOfTokens = self.balanceOf(_owner)
+        for x in range(1, numberOfTokens + 1):
+            if self.tokenOfOwnerByIndex(_owner, x) == _tokenId:
+                return x
+        return 0
+
+    @external(readonly=True)
+    def tokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
+        """
+        Returns _tokenId assigned to the _owner on a given _index.
+        Throws if _owner does not exist or if _index is out of bounds.
+        """
+        result = VarDB(f'{str(_owner)}_{str(_index)}', self._db, value_type=str).get()
+        if result:
+            return int(result)
+        else:
+            revert("No token found for this owner on a given index")
+
+    def _setOwnerTokenIndex(self, _address: Address, _index: int, _tokenId: int):
+        VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).set(str(_tokenId))
+
+    def _removeOwnerTokenIndex(self, _address: Address, _index: int):
+        VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).remove()
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):

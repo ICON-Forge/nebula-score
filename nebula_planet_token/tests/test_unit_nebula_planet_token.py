@@ -137,15 +137,8 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score._setOwnerTokenIndex(self.test_account1, 1, 11)
         self.score._setOwnerTokenIndex(self.test_account1, 2, 12)
 
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 2), 12)
-
-    def test_remove_ownerTokenIndex(self):
-        self.set_msg(self.test_account1)
-        self.score._setOwnerTokenIndex(self.test_account1, 1, 11)
-
-        self.score._removeOwnerTokenIndex(self.test_account1, 1)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 1), 0)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 12)
 
     def test_ownerTokenIndex_mind_and_burn(self):
         self.set_msg(self.test_account1)
@@ -155,10 +148,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.mint(self.test_account1, 14, "http://www.example.com/4")
         self.score._burn(self.test_account1, 12)
 
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 2), 14)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 3), 13)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 4), 0)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 14)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 3), 13)
 
     def test_ownerTokenIndex_transfer(self):
         self.set_msg(self.test_account1)
@@ -168,12 +160,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.mint(self.test_account2, 14, "http://www.example.com/4")
         self.score.transferFrom(self.test_account1, self.test_account2, 12)
 
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 2), 13)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account1, 3), 0)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account2, 1), 14)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account2, 2), 12)
-        self.assertEqual(self.score._getOwnerTokenIndex(self.test_account2, 3), 0)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 13)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 1), 14)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 2), 12)
 
     def test_incrementTotalSupply(self):
         self.set_msg(self.test_account1)
@@ -189,24 +179,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(self.score.totalSupply(), 0)
 
-    def test_set_tokenIndex(self):
-        self.set_msg(self.test_account1)
-        self.score._setTokenIndex(1, 11)
-        self.score._setTokenIndex(2, 12)
-        self.score._setTokenIndex(3, 13)
-
-        self.score._removeTokenIndex(2)
-
-        self.assertEqual(self.score._getTokenIndexByTokenId(11), 1)
-        self.assertEqual(self.score._getTokenIndexByTokenId(12), 0)
-        self.assertEqual(self.score._getTokenIndexByTokenId(13), 3)
-        self.assertEqual(self.score.tokenByIndex(1), 11)
-        self.assertEqual(self.score.tokenByIndex(2), 0)
-        self.assertEqual(self.score.tokenByIndex(3), 13)
-
-
-
-    def test_tokenIndex(self):
+    def test_token_indexes(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
