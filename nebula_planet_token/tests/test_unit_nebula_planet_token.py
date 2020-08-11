@@ -105,11 +105,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 2), 4)
 
     def test_error_tokenOfOwnerByIndex(self):
-        with self.assertRaises(IconScoreException) as e:
-            self.score.tokenOfOwnerByIndex(self.test_account1, 5)
-
-        self.assertEqual(e.exception.code, 32)
-        self.assertEqual(e.exception.message, "No token found for this owner on a given index")
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 5), 0)
 
     def test_get_ownedTokens(self):
         self.set_msg(self.test_account1)

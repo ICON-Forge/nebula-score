@@ -66,8 +66,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
-    # TODO: Check permissions for all external functions
-
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
         self._ownedTokenCount = DictDB(self._OWNED_TOKEN_COUNT, db, value_type=int)
@@ -259,7 +257,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         numberOfTokens = self.balanceOf(_owner)
         ownedTokens = []
         for x in range(1, numberOfTokens + 1):
-            ownedTokens.append(self.tokenOfOwnerByIndex(_owner, x))
+            token = self.tokenOfOwnerByIndex(_owner, x)
+            if token != 0:
+                ownedTokens.append(self.tokenOfOwnerByIndex(_owner, x))
 
         return ownedTokens
 
@@ -362,7 +362,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if result:
             return int(result)
         else:
-            revert("No token found for this owner on a given index")
+            return 0
 
     def _setOwnerTokenIndex(self, _address: Address, _index: int, _tokenId: int):
         VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).set(str(_tokenId))
