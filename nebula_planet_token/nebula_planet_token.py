@@ -63,6 +63,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _TOKEN_URIS = 'token_URIs'  # Track token URIs against token ID
     _OWNED_TOKENS = 'owned_tokens'  # Track tokens against token owners
     _TOTAL_SUPPLY = 'total_supply'  # Tracks total number of valid tokens (excluding ones with zero address)
+    _LISTED_TOKENS = 'listed_tokens'  # Tracks listed token indexes
+    _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
+    _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_token_count'  # Tracks number of listed tokens against token owners
+    _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
@@ -73,6 +77,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._tokenApprovals = DictDB(self._TOKEN_APPROVALS, db, value_type=Address)
         self._tokenURIs = DictDB(self._TOKEN_URIS, db, value_type=str)
         self._totalSupply = VarDB(self._TOTAL_SUPPLY, db, value_type=int)
+        self._ownerListedTokenCount = DictDB(self._OWNER_LISTED_TOKEN_COUNT, db, value_type=int)
+        self._totalListedTokenCount = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
+        self._listedTokenPrices = DictDB(self._LISTED_TOKEN_PRICES, db, value_type=int)
+        self._listedTokens = DictDB(self._LISTED_TOKENS, db, value_type=int)
 
         self._db = db
 
@@ -370,6 +378,127 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _removeOwnerTokenIndex(self, _address: Address, _index: int):
         VarDB(f'{str(_address)}_{str(_index)}', self._db, value_type=str).remove()
 
+    # Exchange
+    # Exchange
+    # Exchange
+    # TODO: check that tokens are delisted on transfer/burn/etc.
+
+    @external
+    def listToken(self, _tokenId: int, _price: int):
+        if _price < 0:
+            revert("Price can not be negative")
+        if _price == 0:
+            revert("Price can not be zero")
+
+        owner = self.ownerOf(_tokenId)
+        sender = self.msg.sender
+        if sender != owner:
+            revert("You do not own this NFT")
+        # remove old listing?
+        self._incrementListedTokenCount()
+        self._setListedTokenIndex(self._totalListedTokenCount.get(), _tokenId)
+        # print("self._totalListedTokenCount)")
+        # print(self._totalListedTokenCount.get())
+
+        self._listedTokenPrices[str(_tokenId)] = _price
+
+        self._ownerListedTokenCount[sender] += 1
+        self._setOwnerListedTokenIndex(sender, self._ownerListedTokenCount[sender], _tokenId)
+
+    @external(readonly=True)
+    def listedTokens(self) -> list:
+        return []
+
+    @external(readonly=True)
+    def totalListedTokenCount(self) -> int:
+        return self._totalListedTokenCount.get()
+
+    @external(readonly=True)
+    def listedTokensByOwner(self, _owner: Address) -> list:
+        return []
+
+    @external(readonly=True)
+    def listedTokenCountByOwner(self, _owner: Address) -> int:
+        if _owner is None or self._is_zero_address(_owner):
+            revert("Invalid owner")
+        return self._ownerListedTokenCount[_owner]
+
+    @external
+    def clearTokenListing(self, _tokenId: int):
+        owner = self.ownerOf(_tokenId)
+        if self.msg.sender != owner:
+            revert("You do not own this NFT")
+
+    @external(readonly=True)
+    def getTokenPrice(self, _tokenId: int) -> int:
+        return self._listedTokenPrices[str(_tokenId)]
+
+
+
+
+    @external(readonly=True)
+    def getListedTokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
+        result = VarDB(f'LISTED_{str(_owner)}_{str(_index)}', self._db, value_type=str).get()
+        if result:
+            return int(result)
+        else:
+            return 0
+
+    @external
+    def purchaseToken(self):
+        print("1")
+
+    def _getOwnerListedTokenIndex(self, _address: Address, _index: int) -> int:
+        return int(VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).get())
+
+    def _setOwnerListedTokenIndex(self, _address: Address, _index: int, _tokenId: int):
+        VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).set(str(_tokenId))
+
+    def _removeOwnerListedTokenIndex(self, _address: Address, _index: int):
+        VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).remove()
+
+    def _decrementListedTokenCount(self):
+        self._totalListedTokenCount.set(self._totalListedTokenCount.get() - 1)
+
+    def _incrementListedTokenCount(self):
+        self._totalListedTokenCount.set(self._totalListedTokenCount.get() + 1)
+
+    def _getListedTokenIndexByTokenId(self, _tokenId: int) -> int:
+        result = VarDB(f'LISTED_TOKEN_{str(_tokenId)}', self._db, value_type=int).get()
+        if result:
+            return result
+        else:
+            return 0
+
+    @external(readonly=True)
+    def getListedTokenByIndex(self, _index: int) -> int:
+        # return self._listedTokens[str(_index)]
+        result = VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int).get()
+        if result:
+            return result
+        else:
+            return 0
+
+    def _setListedTokenIndex(self, _index: int, _tokenId: int):
+        VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int).set(_tokenId)
+        VarDB(f'LISTED_TOKEN_{str(_tokenId)}', self._db, value_type=int).set(_index)
+
+    def _removeListedTokenIndex(self, _index: int):
+        tokenId = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
+        VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int).remove()
+        VarDB(f'LISTED_TOKEN_{str(tokenId)}', self._db, value_type=int).remove()
+
+    def _findListedTokenIndexByTokenId(self, _owner: Address, _tokenId: int) -> int:
+        # Returns index of a given _tokenId of _owner. Returns 0 when no result.
+        numberOfTokens = self.listedTokenCountByOwner(_owner)
+        for x in range(1, numberOfTokens + 1):
+            if self.getListedTokenOfOwnerByIndex(_owner, x) == _tokenId:
+                return x
+        return 0
+
+
+
+
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):
         pass
@@ -377,3 +506,13 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     @eventlog(indexed=3)
     def Transfer(self, _from: Address, _to: Address, _tokenId: int):
         pass
+
+    @eventlog(indexed=3) # TODO
+    def PurchaseToken(self, _from: Address, _to: Address, _tokenId: int):
+        pass
+
+    @eventlog(indexed=3)  # TODO
+    def MintToken(self, _from: Address, _to: Address, _tokenId: int):
+        pass
+
+    # TODO: FIX NAMES AND REFACTOR !!!!
