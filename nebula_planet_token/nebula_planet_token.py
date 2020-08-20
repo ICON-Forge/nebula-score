@@ -412,11 +412,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self.MAX_ITERATION_LOOP < self.totalListedTokenCount():
             iterationCount = self.MAX_ITERATION_LOOP
         tokens = {}
-        print(iterationCount)
         for x in range(1 + offset, iterationCount + offset + 1):
             tokenId = self.getListedTokenByIndex(x)
             price = self.getTokenPrice(tokenId)
-            print(tokenId)
             if (tokenId and price):
                 tokens[tokenId] = price
         return tokens
@@ -426,8 +424,17 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         return self._totalListedTokenCount.get()
 
     @external(readonly=True)
-    def listedTokensByOwner(self, _owner: Address) -> list:
-        return []
+    def listedTokensByOwner(self, _owner: Address, offset: int = 0) -> dict:
+        iterationCount = self.listedTokenCountByOwner(_owner)
+        if self.MAX_ITERATION_LOOP < self.totalListedTokenCount():
+            iterationCount = self.MAX_ITERATION_LOOP
+        tokens = {}
+        for x in range(1 + offset, iterationCount + offset + 1):
+            tokenId = self.getListedTokenOfOwnerByIndex(_owner, x)
+            price = self.getTokenPrice(tokenId)
+            if (tokenId and price):
+                tokens[tokenId] = price
+        return tokens
 
     @external(readonly=True)
     def listedTokenCountByOwner(self, _owner: Address) -> int:

@@ -246,6 +246,26 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(listedTokens, expectedTokens)
         self.assertEqual(offsetTokens, expectedOffsetTokens)
 
+    def test_get_ownerListedTokens(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account2, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account2, 14, "http://www.example.com/4")
+        self.score.listToken(11, 100000000000000000)
+        self.score.listToken(12, 200000000000000000)
+        self.set_msg(self.test_account2)
+        self.score.listToken(13, 300000000000000000)
+        self.score.listToken(14, 400000000000000000)
+
+        firstAccountTokens = self.score.listedTokensByOwner(self.test_account1)
+        firstAccountExpectedTokens = {11: 100000000000000000, 12: 200000000000000000}
+        secondAccountTokens = self.score.listedTokensByOwner(self.test_account2)
+        secondAccountExpectedTokens = {13: 300000000000000000, 14: 400000000000000000}
+
+        self.assertEqual(firstAccountTokens, firstAccountExpectedTokens)
+        self.assertEqual(secondAccountTokens, secondAccountExpectedTokens)
+
 
 
 
