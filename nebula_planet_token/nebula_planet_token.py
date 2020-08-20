@@ -492,8 +492,18 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             return 0
 
     @external
-    def purchaseToken(self):
-        print("1")
+    @payable
+    def purchaseToken(self, _tokenId: int):
+        tokenPrice = self.getTokenPrice(_tokenId)
+        if self.msg.value != tokenPrice:
+            revert(f'Sent ICX amount ({self.msg.value}) does not match token price ({tokenPrice})')
+
+        seller = self.ownerOf(_tokenId)
+        buyer = self.msg.sender
+        self._transfer(seller, buyer, _tokenId)
+        self.icx.transfer(seller, tokenPrice)
+
+        self.clearTokenListing(_tokenId)
 
     def _getOwnerListedTokenIndex(self, _address: Address, _index: int) -> int:
         return int(VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).get())
@@ -543,6 +553,13 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                 return x
         return 0
 
+    def deposit(self):
+        # todo
+        print(1)
+
+    def withdraw(self):
+        # todo
+        print(1)
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):

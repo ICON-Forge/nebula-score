@@ -314,6 +314,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.score.clearTokenListing(13)
 
+        self.assertEqual(self.score.icx.get_balance(self.test_account1), 4)
         self.assertEqual(self.score.totalListedTokenCount(), 4)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 1)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 3)
@@ -321,6 +322,24 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 1), 12)
         self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 2), 15)
         self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 3), 14)
+
+    def test_purchaseToken(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        tokenPrice = 5000000000000000000
+        self.score.listToken(11, tokenPrice)
+
+        self.set_msg(self.test_account2, tokenPrice)
+        self.score.purchaseToken(11)
+
+        self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - tokenPrice)
+        self.assertEqual(self.score.balanceOf(self.test_account1), 0)
+        self.assertEqual(self.score.balanceOf(self.test_account2), 1)
+        self.assertEqual(self.score.totalListedTokenCount(), 0)
+
+
+
+
 
 
 
