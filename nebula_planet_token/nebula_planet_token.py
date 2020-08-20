@@ -67,6 +67,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
     _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_token_count'  # Tracks number of listed tokens against token owners
     _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
+    MAX_ITERATION_LOOP = 100
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
@@ -406,8 +407,19 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._setOwnerListedTokenIndex(sender, self._ownerListedTokenCount[sender], _tokenId)
 
     @external(readonly=True)
-    def listedTokens(self) -> list:
-        return []
+    def listedTokens(self, offset: int = 0) -> dict:
+        iterationCount = self.totalListedTokenCount()
+        if self.MAX_ITERATION_LOOP < self.totalListedTokenCount():
+            iterationCount = self.MAX_ITERATION_LOOP
+        tokens = {}
+        print(iterationCount)
+        for x in range(1 + offset, iterationCount + offset + 1):
+            tokenId = self.getListedTokenByIndex(x)
+            price = self.getTokenPrice(tokenId)
+            print(tokenId)
+            if (tokenId and price):
+                tokens[tokenId] = price
+        return tokens
 
     @external(readonly=True)
     def totalListedTokenCount(self) -> int:
@@ -432,9 +444,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     @external(readonly=True)
     def getTokenPrice(self, _tokenId: int) -> int:
         return self._listedTokenPrices[str(_tokenId)]
-
-
-
 
     @external(readonly=True)
     def getListedTokenOfOwnerByIndex(self, _owner: Address, _index: int) -> int:
@@ -495,8 +504,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             if self.getListedTokenOfOwnerByIndex(_owner, x) == _tokenId:
                 return x
         return 0
-
-
 
 
     @eventlog(indexed=3)

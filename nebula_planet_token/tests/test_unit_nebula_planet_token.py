@@ -213,6 +213,39 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score._getOwnerListedTokenIndex(self.test_account2, 1), 12)
         self.assertEqual(self.score._getOwnerListedTokenIndex(self.test_account1, 2), 13)
 
+    def test_get_listedTokens(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+        self.score.listToken(11, 100000000000000000)
+        self.score.listToken(12, 200000000000000000)
+        self.score.listToken(13, 300000000000000000)
+
+        listedTokens = self.score.listedTokens()
+
+        expectedTokens = {11: 100000000000000000, 12: 200000000000000000, 13: 300000000000000000}
+
+        self.assertEqual(listedTokens, expectedTokens)
+
+    def test_get_listedTokens_over_max_iteration(self):
+        self.set_msg(self.test_account1)
+        self.score.MAX_ITERATION_LOOP = 2
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+        self.score.listToken(11, 100000000000000000)
+        self.score.listToken(12, 200000000000000000)
+        self.score.listToken(13, 300000000000000000)
+
+        listedTokens = self.score.listedTokens()
+        expectedTokens = {11: 100000000000000000, 12: 200000000000000000}
+        offsetTokens = self.score.listedTokens(2)
+        expectedOffsetTokens = {13: 300000000000000000}
+
+        self.assertEqual(listedTokens, expectedTokens)
+        self.assertEqual(offsetTokens, expectedOffsetTokens)
+
 
 
 
