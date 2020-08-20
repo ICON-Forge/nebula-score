@@ -395,11 +395,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         sender = self.msg.sender
         if sender != owner:
             revert("You do not own this NFT")
-        # remove old listing?
         self._incrementListedTokenCount()
         self._setListedTokenIndex(self._totalListedTokenCount.get(), _tokenId)
-        # print("self._totalListedTokenCount)")
-        # print(self._totalListedTokenCount.get())
 
         self._listedTokenPrices[str(_tokenId)] = _price
 
@@ -447,6 +444,40 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         owner = self.ownerOf(_tokenId)
         if self.msg.sender != owner:
             revert("You do not own this NFT")
+        if not self.getTokenPrice(_tokenId):
+            revert("Token is not listed")
+
+        self._removeTokenListing(_tokenId)
+        self._removeOwnerTokenListing(owner, _tokenId)
+
+    def _removeTokenListing(self, _tokenId: int):
+        activeIndex = self._getListedTokenIndexByTokenId(_tokenId)
+        lastIndex = self.totalListedTokenCount()
+        lastToken = self.getListedTokenByIndex(lastIndex)
+        self._removeListedTokenIndex(activeIndex)
+        self._removeListedTokenIndex(lastIndex)
+        self._setListedTokenIndex(activeIndex, lastToken)
+        self._decrementListedTokenCount()
+
+    def _removeOwnerTokenListing(self, _owner: Address, _tokenId: int):
+        activeIndex = self._getOwnerListedTokenIndexByTokenId(_owner, _tokenId)
+        lastIndex = self.listedTokenCountByOwner(_owner)
+        lastToken = self.getListedTokenOfOwnerByIndex(_owner, lastIndex)
+        self._removeOwnerListedTokenIndex(_owner, activeIndex)
+        self._removeOwnerListedTokenIndex(_owner, lastIndex)
+        self._setOwnerListedTokenIndex(_owner, activeIndex, lastToken)
+        self._ownerListedTokenCount[_owner] -= 1
+
+    def _getOwnerListedTokenIndexByTokenId(self, _owner: Address, _tokenId: int) -> int:
+        # Returns list index of a given _tokenId of _owner. Returns 0 when no result.
+        numberOfTokens = self.listedTokenCountByOwner(_owner)
+        for x in range(1, numberOfTokens + 1):
+            if self.getListedTokenOfOwnerByIndex(_owner, x) == _tokenId:
+                return x
+        return 0
+
+
+
 
     @external(readonly=True)
     def getTokenPrice(self, _tokenId: int) -> int:
@@ -505,7 +536,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         VarDB(f'LISTED_TOKEN_{str(tokenId)}', self._db, value_type=int).remove()
 
     def _findListedTokenIndexByTokenId(self, _owner: Address, _tokenId: int) -> int:
-        # Returns index of a given _tokenId of _owner. Returns 0 when no result.
+        # Returns listing index of a given _tokenId of _owner. Returns 0 when no result.
         numberOfTokens = self.listedTokenCountByOwner(_owner)
         for x in range(1, numberOfTokens + 1):
             if self.getListedTokenOfOwnerByIndex(_owner, x) == _tokenId:

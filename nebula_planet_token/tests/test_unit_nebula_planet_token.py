@@ -136,7 +136,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 12)
 
-    def test_ownerTokenIndex_mind_and_burn(self):
+    def test_ownerTokenIndex_mint_and_burn(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
@@ -144,6 +144,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.mint(self.test_account1, 14, "http://www.example.com/4")
         self.score._burn(self.test_account1, 12)
 
+        self.assertEqual(self.score._ownedTokenCount[self.test_account1], 3)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 14)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 3), 13)
@@ -266,7 +267,60 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(firstAccountTokens, firstAccountExpectedTokens)
         self.assertEqual(secondAccountTokens, secondAccountExpectedTokens)
 
+    def test_clearTokenListing(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 14, "http://www.example.com/4")
+        self.score.listToken(11, 100000000000000000)
+        self.score.listToken(12, 200000000000000000)
+        self.score.listToken(13, 300000000000000000)
+        self.score.listToken(14, 400000000000000000)
 
+        self.score.clearTokenListing(12)
+
+        listedTokens = self.score.listedTokens()
+        expectedTokens = {11: 100000000000000000, 13: 300000000000000000, 14: 400000000000000000}
+
+        self.assertEqual(listedTokens, expectedTokens)
+        self.assertEqual(self.score.getListedTokenByIndex(1), 11)
+        self.assertEqual(self.score.getListedTokenByIndex(2), 14)
+        self.assertEqual(self.score.getListedTokenByIndex(3), 13)
+        self.assertEqual(self.score.totalListedTokenCount(), 3)
+
+    def test_error_clearTokenListing(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        with self.assertRaises(IconScoreException) as e:
+            self.score.clearTokenListing(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not listed")
+
+    def test_clearOwnerTokenListing(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account2, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account2, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account2, 14, "http://www.example.com/4")
+        self.score.mint(self.test_account2, 15, "http://www.example.com/5")
+        self.score.listToken(11, 100000000000000000)
+
+        self.set_msg(self.test_account2)
+        self.score.listToken(12, 200000000000000000)
+        self.score.listToken(13, 300000000000000000)
+        self.score.listToken(14, 400000000000000000)
+        self.score.listToken(15, 500000000000000000)
+
+        self.score.clearTokenListing(13)
+
+        self.assertEqual(self.score.totalListedTokenCount(), 4)
+        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 1)
+        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 3)
+        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account1, 1), 11)
+        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 1), 12)
+        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 2), 15)
+        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 3), 14)
 
 
 
