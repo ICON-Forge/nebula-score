@@ -63,7 +63,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _TOKEN_URIS = 'token_URIs'  # Track token URIs against token ID
     _OWNED_TOKENS = 'owned_tokens'  # Track tokens against token owners
     _TOTAL_SUPPLY = 'total_supply'  # Tracks total number of valid tokens (excluding ones with zero address)
-    _LISTED_TOKENS = 'listed_tokens'  # Tracks listed token indexes
     _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
     _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_token_count'  # Tracks number of listed tokens against token owners
     _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
@@ -84,7 +83,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._ownerListedTokenCount = DictDB(self._OWNER_LISTED_TOKEN_COUNT, db, value_type=int)
         self._totalListedTokenCount = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
         self._listedTokenPrices = DictDB(self._LISTED_TOKEN_PRICES, db, value_type=int)
-        self._listedTokens = DictDB(self._LISTED_TOKENS, db, value_type=int)
         self._director = VarDB(self._DIRECTOR, db, value_type=Address)
         self._treasurer = VarDB(self._TREASURER, db, value_type=Address)
         self._minter = VarDB(self._MINTER, db, value_type=Address)
@@ -93,13 +91,46 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     def on_install(self) -> None:
         super().on_install()
-
         self._director.set(self.msg.sender)
         self._treasurer.set(self.msg.sender)
         self._minter.set(self.msg.sender)
 
     def on_update(self) -> None:
         super().on_update()
+
+    @payable
+    def fallback(self):
+        """
+        Called when funds are sent to the contract.
+        Throws if sender is not the Treasurer.
+        """
+        if self._treasurer.get() != self.msg.sender:
+            revert('You are not allowed to deposit to this contract')
+
+    @external
+    def withdraw(self, amount: int):
+        """
+        Used to withdraw funds from the contract.
+        Throws if sender is not the Treasurer.
+        """
+        treasurer = self._treasurer.get()
+        if treasurer != self.msg.sender:
+            revert('You are not allowed to withdraw from this contract')
+        self.icx.send(treasurer, amount)
+
+    @external
+    def assignTreasurer(self, address: Address):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to assign roles')
+        self._treasurer.remove()
+        self._treasurer.set(address)
+
+    @external
+    def assignMinter(self, address: Address):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to assign roles')
+        self._minter.remove()
+        self._minter.set(address)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -562,40 +593,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             if self.getListedTokenOfOwnerByIndex(_owner, x) == _tokenId:
                 return x
         return 0
-
-    @payable
-    def fallback(self):
-        """
-        Called when funds are sent to the contract.
-        Throws if sender is not the Treasurer.
-        """
-        if self._treasurer.get() == self.msg.sender:
-            revert('You are not allowed to deposit to this contract')
-
-    @external
-    def withdraw(self, amount: int):
-        """
-        Used to withdraw funds from the contract.
-        Throws if sender is not the Treasurer.
-        """
-        treasurer = self._treasurer.get()
-        if treasurer == self.msg.sender:
-            revert('You are not allowed to withdraw from this contract')
-        self.icx.transfer(treasurer, amount)
-
-    @external
-    def assignTreasurer(self, address: Address):
-        if self._director.get() == self.msg.sender:
-            revert('You are not allowed to assign roles')
-        self._treasurer.remove()
-        self._treasurer.set(address)
-
-    @external
-    def assignMinter(self, address: Address):
-        if self._director.get() == self.msg.sender:
-            revert('You are not allowed to assign roles')
-        self._minter.remove()
-        self._minter.set(address)
 
 
     @eventlog(indexed=3)

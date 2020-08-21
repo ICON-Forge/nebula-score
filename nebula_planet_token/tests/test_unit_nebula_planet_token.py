@@ -10,6 +10,37 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.mock_score_address = Address.from_string(f"cx{'1234'*10}")
         self.score = self.get_score_instance(NebulaPlanetToken, self.test_account1)
 
+    def test_initialize_roles(self):
+        self.assertEqual(self.score._director.get(), self.test_account1)
+        self.assertEqual(self.score._treasurer.get(), self.test_account1)
+        self.assertEqual(self.score._minter.get(), self.test_account1)
+
+    def test_assignTreasurer(self):
+        self.set_msg(self.test_account1)
+        self.score.assignTreasurer(self.test_account2)
+
+        self.assertEqual(self.score._treasurer.get(), self.test_account2)
+
+    def test_error_assignTreasurer(self):
+        self.set_msg(self.test_account2)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.assignTreasurer(self.test_account1)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You are not allowed to assign roles")
+
+    def test_assignMinter(self):
+        self.set_msg(self.test_account1)
+        self.score.assignMinter(self.test_account2)
+
+        self.assertEqual(self.score._minter.get(), self.test_account2)
+
+    def test_error_assignMinter(self):
+        self.set_msg(self.test_account2)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.assignMinter(self.test_account1)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You are not allowed to assign roles")
+
     def test_get_name(self):
         self.assertEqual("NebulaPlanetToken", self.score.name())
 
@@ -314,7 +345,6 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.score.clearTokenListing(13)
 
-        self.assertEqual(self.score.icx.get_balance(self.test_account1), 4)
         self.assertEqual(self.score.totalListedTokenCount(), 4)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 1)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 3)
@@ -336,6 +366,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
         self.assertEqual(self.score.balanceOf(self.test_account2), 1)
         self.assertEqual(self.score.totalListedTokenCount(), 0)
+
+    # TODO: Test this with integration test instead: https://github.com/icon-project/samples/blob/master/crowdsale/sample_crowdsale/tests/test_integrate_sample_crowdsale.py
+    # def test_withdraw(self):
+
 
 
 
