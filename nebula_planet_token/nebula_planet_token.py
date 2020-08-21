@@ -67,6 +67,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
     _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_token_count'  # Tracks number of listed tokens against token owners
     _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
+    _DIRECTOR = 'director'  # Role responsible for assigning other roles.
+    _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
+    _MINTER = 'minter'  # Role responsible for minting and burning tokens
     MAX_ITERATION_LOOP = 100
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
@@ -82,11 +85,18 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._totalListedTokenCount = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
         self._listedTokenPrices = DictDB(self._LISTED_TOKEN_PRICES, db, value_type=int)
         self._listedTokens = DictDB(self._LISTED_TOKENS, db, value_type=int)
+        self._director = VarDB(self._DIRECTOR, db, value_type=Address)
+        self._treasurer = VarDB(self._TREASURER, db, value_type=Address)
+        self._minter = VarDB(self._MINTER, db, value_type=Address)
 
         self._db = db
 
     def on_install(self) -> None:
         super().on_install()
+
+        self._director.set(self.msg.sender)
+        self._treasurer.set(self.msg.sender)
+        self._minter.set(self.msg.sender)
 
     def on_update(self) -> None:
         super().on_update()
@@ -250,7 +260,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     def _setTokenUri(self, _tokenId: int, _tokenURI: str):
         """
-        Set token URI for a given token. Reverts if a token does not exist.
+        Set token URI for a given token. Throws if a token does not exist.
         """
         self._ensure_positive(_tokenId)
         self._tokenURIs[_tokenId] = _tokenURI
@@ -553,13 +563,40 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                 return x
         return 0
 
-    def deposit(self):
-        # todo
-        print(1)
+    @payable
+    def fallback(self):
+        """
+        Called when funds are sent to the contract.
+        Throws if sender is not the Treasurer.
+        """
+        if self._treasurer.get() == self.msg.sender:
+            revert('You are not allowed to deposit to this contract')
 
-    def withdraw(self):
-        # todo
-        print(1)
+    @external
+    def withdraw(self, amount: int):
+        """
+        Used to withdraw funds from the contract.
+        Throws if sender is not the Treasurer.
+        """
+        treasurer = self._treasurer.get()
+        if treasurer == self.msg.sender:
+            revert('You are not allowed to withdraw from this contract')
+        self.icx.transfer(treasurer, amount)
+
+    @external
+    def assignTreasurer(self, address: Address):
+        if self._director.get() == self.msg.sender:
+            revert('You are not allowed to assign roles')
+        self._treasurer.remove()
+        self._treasurer.set(address)
+
+    @external
+    def assignMinter(self, address: Address):
+        if self._director.get() == self.msg.sender:
+            revert('You are not allowed to assign roles')
+        self._minter.remove()
+        self._minter.set(address)
+
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):
