@@ -298,7 +298,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(firstAccountTokens, firstAccountExpectedTokens)
         self.assertEqual(secondAccountTokens, secondAccountExpectedTokens)
 
-    def test_clearTokenListing(self):
+    def test_delistToken(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
@@ -309,7 +309,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.listToken(13, 300000000000000000)
         self.score.listToken(14, 400000000000000000)
 
-        self.score.clearTokenListing(12)
+        self.score.delistToken(12)
 
         listedTokens = self.score.listedTokens()
         expectedTokens = {11: 100000000000000000, 13: 300000000000000000, 14: 400000000000000000}
@@ -320,11 +320,11 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.getListedTokenByIndex(3), 13)
         self.assertEqual(self.score.totalListedTokenCount(), 3)
 
-    def test_error_clearTokenListing(self):
+    def test_error_delistToken(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         with self.assertRaises(IconScoreException) as e:
-            self.score.clearTokenListing(11)
+            self.score.delistToken(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Token is not listed")
 
@@ -343,7 +343,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.listToken(14, 400000000000000000)
         self.score.listToken(15, 500000000000000000)
 
-        self.score.clearTokenListing(13)
+        self.score.delistToken(13)
 
         self.assertEqual(self.score.totalListedTokenCount(), 4)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 1)

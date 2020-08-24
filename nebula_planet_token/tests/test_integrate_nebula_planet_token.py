@@ -31,7 +31,15 @@ class TestTest(IconIntegrateTestBase):
 
     def _deploy_score(self, to: str = SCORE_INSTALL_ADDRESS) -> dict:
         # Generates an instance of transaction for deploying SCORE.
-        transaction = DeployTransactionBuilder()             .from_(self._test1.get_address())             .to(to)             .step_limit(100_000_000_000)             .nid(3)             .nonce(100)             .content_type("application/zip")             .content(gen_deploy_data_content(self.SCORE_PROJECT))             .build()
+        transaction = DeployTransactionBuilder()\
+            .from_(self._test1.get_address())\
+            .to(to)\
+            .step_limit(100_000_000_000)\
+            .nid(3)\
+            .nonce(100)\
+            .content_type("application/zip")\
+            .content(gen_deploy_data_content(self.SCORE_PROJECT))\
+            .build()
 
         # Returns the signed transaction object having a signature
         signed_transaction = SignedTransaction(transaction, self._test1)
