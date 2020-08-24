@@ -182,8 +182,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def mint(self, _to: Address, _tokenId: int, _tokenUri: str):
         # Mint a new NFT token
         self._ensure_positive(_tokenId)
-        if self.msg.sender != self.owner:
-            revert("You don't have permission to mint NFT")
+        if self._minter.get() != self.msg.sender:
+            revert('You are not allowed to mint tokens')
         if _tokenId in self._tokenOwner:
             revert("Token already exists")
         self._add_tokens_to(_to, _tokenId)
@@ -194,8 +194,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     @external
     def burn(self, _tokenId: int):
         # Burn NFT token
-        if self.ownerOf(_tokenId) != self.msg.sender:
-            revert("You dont have permission to burn this NFT")
+        if self._minter.get() != self.msg.sender:
+            revert('You are not allowed to burn tokens')
         self._burn(self.msg.sender, _tokenId)
 
     def _burn(self, _owner: Address, _tokenId: int):

@@ -54,6 +54,15 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.ownerOf(1), self.test_account1)
         self.assertEqual(self.score.balanceOf(self.test_account1), 1)
 
+    def test_error_mint(self):
+        self.set_msg(self.test_account1)
+        self.score.assignMinter(self.test_account2)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You are not allowed to mint tokens")
+
     def test_set_transfer(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
@@ -99,6 +108,15 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Invalid _tokenId. NFT is burned")
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
+
+    def test_error_burn(self):
+        self.set_msg(self.test_account1)
+        self.score.assignMinter(self.test_account2)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.burn(1)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You are not allowed to burn tokens")
 
     def test_error_transfer(self):
         self.set_msg(self.test_account1)
