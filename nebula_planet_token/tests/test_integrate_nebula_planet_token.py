@@ -81,7 +81,8 @@ class TestTest(IconIntegrateTestBase):
         # Mint an NFT token first via 'mint'
         params = {
             '_to': self._test1.get_address(),
-            '_tokenId': 1
+            '_tokenId': 1,
+            '_tokenUri': 'www.example.com/planet/1'
         }
         transaction = CallTransactionBuilder() \
             .from_(self._test1.get_address()) \
@@ -219,3 +220,36 @@ class TestTest(IconIntegrateTestBase):
             self.process_call(call, self.icon_service)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Invalid _tokenId. NFT is burned")
+
+    def test_call_tokenUri(self):
+        # Mint an NFT token first via 'mint'
+        params = {
+            '_to': self._test1.get_address(),
+            '_tokenId': 1,
+            '_tokenUri': 'www.example.com/planet/1'
+        }
+        transaction = CallTransactionBuilder() \
+            .from_(self._test1.get_address()) \
+            .to(self._score_address) \
+            .step_limit(100_000_000) \
+            .method("mint") \
+            .params(params) \
+            .build()
+
+        signed_transaction = SignedTransaction(transaction, self._test1)
+        tx_result = self.process_transaction(signed_transaction, self.icon_service)
+        self.assertTrue('status' in tx_result)
+        self.assertEqual(1, tx_result['status'])
+
+        params = {
+            "_tokenId": 1
+        }
+        call = CallBuilder().from_(self._test1.get_address()) \
+            .to(self._score_address) \
+            .params(params) \
+            .method("tokenURI") \
+            .build()
+
+        response = self.process_call(call, self.icon_service)
+        self.assertEqual("www.example.com/planet/1", response)
+
