@@ -173,6 +173,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert("You can't transfer to a zero address")
 
         self._clear_approval(_tokenId)
+        if self.getTokenPrice(_tokenId):
+            self._delistToken(_from, _tokenId)
         self._remove_tokens_from(_from, _tokenId)
         self._add_tokens_to(_to, _tokenId)
         self.Transfer(_from, _to, _tokenId)
@@ -204,6 +206,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._removeTokenUri(_tokenId)
         tokenIndex = self._getTokenIndexByTokenId(_tokenId)
         self._adjustTokenIndex(tokenIndex)
+        if self.getTokenPrice(_tokenId):
+            self._delistToken(_owner, _tokenId)
         self.Transfer(_owner, self._ZERO_ADDRESS, _tokenId)
 
     def _is_zero_address(self, _address: Address) -> bool:
@@ -465,7 +469,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         self._delistToken(owner, _tokenId)
 
-    @external
     def _delistToken(self, _owner: Address, _tokenId: int):
         self._removeTokenListing(_tokenId)
         self._removeOwnerTokenListing(_owner, _tokenId)
