@@ -463,9 +463,14 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if not self.getTokenPrice(_tokenId):
             revert("Token is not listed")
 
+        self._delistToken(owner, _tokenId)
+
+    @external
+    def _delistToken(self, _owner: Address, _tokenId: int):
         self._removeTokenListing(_tokenId)
-        self._removeOwnerTokenListing(owner, _tokenId)
-        self.DelistToken(owner, _tokenId)
+        self._removeOwnerTokenListing(_owner, _tokenId)
+
+        self.DelistToken(_owner, _tokenId)
 
     def _removeTokenListing(self, _tokenId: int):
         """ Adjusts token indexes by deleting token that is about to be removed and moving last token in its place. """
@@ -539,10 +544,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         seller = self.ownerOf(_tokenId)
         buyer = self.msg.sender
+        self._delistToken(seller, _tokenId)
         self._transfer(seller, buyer, _tokenId)
         self.icx.transfer(seller, tokenPrice)
 
-        self.delistToken(_tokenId)
+        # self._removeTokenListing(_tokenId)
         self.PurchaseToken(seller, buyer, _tokenId)
 
     def _getOwnerListedTokenIndex(self, _address: Address, _index: int) -> int:

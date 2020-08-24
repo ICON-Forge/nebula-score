@@ -365,10 +365,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - tokenPrice)
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
         self.assertEqual(self.score.balanceOf(self.test_account2), 1)
+        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 0)
+        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 0)
         self.assertEqual(self.score.totalListedTokenCount(), 0)
-
-    # TODO: Test this with integration test instead: https://github.com/icon-project/samples/blob/master/crowdsale/sample_crowdsale/tests/test_integrate_sample_crowdsale.py
-    # def test_withdraw(self):
 
 
 
