@@ -367,7 +367,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.balanceOf(self.test_account2), 1)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 0)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 0)
+        self.assertEqual(self.score.getTokenPrice(11), 0)
+
         self.assertEqual(self.score.totalListedTokenCount(), 0)
+
 
 
 

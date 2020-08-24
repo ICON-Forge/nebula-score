@@ -469,6 +469,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _delistToken(self, _owner: Address, _tokenId: int):
         self._removeTokenListing(_tokenId)
         self._removeOwnerTokenListing(_owner, _tokenId)
+        self.clearTokenPrice(_tokenId)
 
         self.DelistToken(_owner, _tokenId)
 
@@ -507,6 +508,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def getTokenPrice(self, _tokenId: int) -> int:
         """ Returns price the token is being sold for. """
         return self._listedTokenPrices[str(_tokenId)]
+
+    def clearTokenPrice(self, _tokenId: int):
+        """ Returns price the token is being sold for. """
+        DictDB(self._LISTED_TOKEN_PRICES, self.db, value_type=int).remove(str(_tokenId))
 
     @external(readonly=True)
     def getListedTokenByIndex(self, _index: int) -> int:
