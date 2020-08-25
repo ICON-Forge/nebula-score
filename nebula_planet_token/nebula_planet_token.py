@@ -231,12 +231,13 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     def _burn(self, _owner: Address, _tokenId: int):
         self._clear_approval(_tokenId)
-        self._remove_tokens_from(_owner, _tokenId)
+        tokenOwner = self.ownerOf(_tokenId)
+        self._remove_tokens_from(tokenOwner, _tokenId)
         self._removeTokenUri(_tokenId)
         tokenIndex = self._getTokenIndexByTokenId(_tokenId)
         self._adjustTokenIndex(tokenIndex)
         if self.getTokenPrice(_tokenId):
-            self._delistToken(_owner, _tokenId)
+            self._delistToken(tokenOwner, _tokenId)
         self.Transfer(_owner, self._ZERO_ADDRESS, _tokenId)
 
     def _is_zero_address(self, _address: Address) -> bool:

@@ -153,6 +153,18 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 1), 2)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 2), 4)
 
+    def test_get_tokenOfOwnerByIndex_after_burn(self):
+        self.set_msg(self.test_account1)
+        self.score.assignMinter(self.test_account2)
+        self.set_msg(self.test_account2)
+        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
+        self.score.burn(1)
+
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 3)
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 2)
+
     def test_error_tokenOfOwnerByIndex(self):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 5), 0)
 
@@ -388,6 +400,19 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.getTokenPrice(11), 0)
 
         self.assertEqual(self.score.totalListedTokenCount(), 0)
+
+    def test_listedTokenCountByOwner_after_burn(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        tokenPrice = 5000000000000000000
+        self.score.listToken(11, tokenPrice)
+
+        self.score.assignMinter(self.test_account2)
+        self.set_msg(self.test_account2)
+        self.score.burn(11)
+
+        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 0)
+        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 0)
 
     def test_pauseContract(self):
         self.set_msg(self.test_account1)
