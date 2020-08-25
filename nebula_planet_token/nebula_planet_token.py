@@ -15,6 +15,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _DIRECTOR = 'director'  # Role responsible for assigning other roles.
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _MINTER = 'minter'  # Role responsible for minting and burning tokens
+    _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
     MAX_ITERATION_LOOP = 100
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
@@ -32,6 +33,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._director = VarDB(self._DIRECTOR, db, value_type=Address)
         self._treasurer = VarDB(self._TREASURER, db, value_type=Address)
         self._minter = VarDB(self._MINTER, db, value_type=Address)
+        self._isPaused = VarDB(self._IS_PAUSED, db, value_type=bool)
 
         self._db = db
 
@@ -40,6 +42,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._director.set(self.msg.sender)
         self._treasurer.set(self.msg.sender)
         self._minter.set(self.msg.sender)
+        self._isPaused.set(False)
 
     def on_update(self) -> None:
         super().on_update()
@@ -52,6 +55,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self._treasurer.get() != self.msg.sender:
             revert('You are not allowed to deposit to this contract')
+
+    # def _isPaused(self):
+    #     self._isPaused()
 
     @external
     def withdraw(self, amount: int):
@@ -79,6 +85,25 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._minter.remove()
         self._minter.set(_address)
         self.AssignRole("Minter", _address)
+
+    @external
+    def pauseContract(self):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to pause the contract')
+        if self._isPaused.get():
+            revert('Contract is already paused')
+        self._isPaused.set(True)
+        self.PauseContract()
+
+    @external
+    def unpauseContract(self):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to unpause the contract')
+        if not self._isPaused.get():
+            revert('Contract is already unpaused')
+        self._isPaused.set(False)
+        self.UnpauseContract()
+
 
     @external(readonly=True)
     def name(self) -> str:
@@ -152,6 +177,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self.ownerOf(_tokenId) != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
+        if self._isPaused.get() and not self.msg.sender == self._minter.get():
+            revert("Contract is currently paused")
         self._transfer(self.msg.sender, _to, _tokenId)
 
     @external
@@ -166,6 +193,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self.ownerOf(_tokenId) != self.msg.sender and \
                 self._tokenApprovals[_tokenId] != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
+        if self._isPaused.get() and not self.msg.sender == self._minter.get():
+            revert("Contract is currently paused")
         self._transfer(_from, _to, _tokenId)
 
     def _transfer(self, _from: Address, _to: Address, _tokenId: int):
@@ -392,6 +421,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         owner = self.ownerOf(_tokenId)
         sender = self.msg.sender
+        if self._isPaused.get() and not self.msg.sender == self._minter.get():
+            revert("Contract is currently paused")
         if sender != owner:
             revert("You do not own this NFT")
         if _price < 0:
@@ -621,4 +652,12 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     @eventlog(indexed=2)
     def AssignRole(self, _role: str, _owner: Address):
+        pass
+
+    @eventlog
+    def PauseContract(self):
+        pass
+
+    @eventlog
+    def UnpauseContract(self):
         pass

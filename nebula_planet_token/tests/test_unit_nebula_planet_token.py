@@ -389,6 +389,75 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(self.score.totalListedTokenCount(), 0)
 
+    def test_pauseContract(self):
+        self.set_msg(self.test_account1)
+        self.score.pauseContract()
+
+        self.assertEqual(self.score._isPaused.get(), True)
+
+    def test_error_unpauseContract(self):
+        self.set_msg(self.test_account1)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.unpauseContract()
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Contract is already unpaused")
+
+    def test_error_pauseContract(self):
+        self.set_msg(self.test_account1)
+        self.score._isPaused.set(True)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.pauseContract()
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Contract is already paused")
+
+    def test_error_transfer_when_isPaused(self):
+        self.set_msg(self.test_account1)
+        self.score._isPaused.set(True)
+        self.score.mint(self.test_account2, 11, "http://www.example.com/1")
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.transfer(self.test_account1, 11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Contract is currently paused")
+
+    def test_transfer_when_isPaused_and_minter(self):
+        self.set_msg(self.test_account1)
+        self.score._isPaused.set(True)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.transfer(self.test_account2, 11)
+
+        self.assertEqual(self.score.ownerOf(11), self.test_account2)
+
+    def test_listToken_when_isPaused_and_minter(self):
+        self.set_msg(self.test_account1)
+        self.score._isPaused.set(True)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.listToken(11, 100)
+
+        self.assertEqual(self.score.getTokenPrice(11), 100)
+
+    def test_error_list_when_isPaused(self):
+        self.set_msg(self.test_account1)
+        self.score._isPaused.set(True)
+        self.score.mint(self.test_account2, 11, "http://www.example.com/1")
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.listToken(11, 100)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Contract is currently paused")
+
+    def test_purchaseToken_when_isPaused(self):
+        self.set_msg(self.test_account1)
+        self.score._isPaused.set(True)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        tokenPrice = 5000000000000000000
+        self.score.listToken(11, tokenPrice)
+
+        self.set_msg(self.test_account2, tokenPrice)
+        self.score.purchaseToken(11)
+
+        self.assertEqual(self.score.ownerOf(11), self.test_account2)
+
 
 
 
