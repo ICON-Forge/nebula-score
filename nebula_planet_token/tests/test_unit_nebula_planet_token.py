@@ -2,6 +2,7 @@ from ..nebula_planet_token import NebulaPlanetToken
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 from iconservice import *
 
+
 class TestNebulaPlanetToken(ScoreTestCase):
 
     def setUp(self):
@@ -10,60 +11,60 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.mock_score_address = Address.from_string(f"cx{'1234'*10}")
         self.score = self.get_score_instance(NebulaPlanetToken, self.test_account1)
 
-    def test_initialize_roles(self):
+    def test_initializes_roles(self):
         self.assertEqual(self.score._director.get(), self.test_account1)
         self.assertEqual(self.score._treasurer.get(), self.test_account1)
         self.assertEqual(self.score._minter.get(), self.test_account1)
 
-    def test_assignTreasurer(self):
+    def test_assigns_treasurer(self):
         self.set_msg(self.test_account1)
-        self.score.assignTreasurer(self.test_account2)
+        self.score.assign_treasurer(self.test_account2)
 
         self.assertEqual(self.score._treasurer.get(), self.test_account2)
 
-    def test_error_assignTreasurer(self):
+    def test_throws_when_assigning_treasurer_without_correct_role(self):
         self.set_msg(self.test_account2)
         with self.assertRaises(IconScoreException) as e:
-            self.score.assignTreasurer(self.test_account1)
+            self.score.assign_treasurer(self.test_account1)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You are not allowed to assign roles")
 
-    def test_assignMinter(self):
+    def test_assigns_minter(self):
         self.set_msg(self.test_account1)
-        self.score.assignMinter(self.test_account2)
+        self.score.assign_minter(self.test_account2)
 
         self.assertEqual(self.score._minter.get(), self.test_account2)
 
-    def test_error_assignMinter(self):
+    def test_throws_when_assigning_minter_without_correct_role(self):
         self.set_msg(self.test_account2)
         with self.assertRaises(IconScoreException) as e:
-            self.score.assignMinter(self.test_account1)
+            self.score.assign_minter(self.test_account1)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You are not allowed to assign roles")
 
-    def test_get_name(self):
+    def test_gets_name(self):
         self.assertEqual("NebulaPlanetToken", self.score.name())
 
-    def test_get_symbol(self):
+    def test_gets_test_symbol(self):
         self.assertEqual("NPT", self.score.symbol())
 
-    def test_set_mint(self):
+    def test_mints_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
 
         self.assertEqual(self.score.ownerOf(1), self.test_account1)
         self.assertEqual(self.score.balanceOf(self.test_account1), 1)
 
-    def test_error_mint(self):
+    def test_throws_when_minting_without_correct_role(self):
         self.set_msg(self.test_account1)
-        self.score.assignMinter(self.test_account2)
+        self.score.assign_minter(self.test_account2)
 
         with self.assertRaises(IconScoreException) as e:
             self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You are not allowed to mint tokens")
 
-    def test_set_transfer(self):
+    def test_transfers_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.transfer(self.test_account2, 1)
@@ -72,14 +73,14 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(0, self.score.balanceOf(self.test_account1))
         self.assertEqual(1, self.score.balanceOf(self.test_account2))
 
-    def test_set_approve(self):
+    def test_approves_token_transfer(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.approve(self.test_account2, 1)
 
         self.assertEqual(self.score.getApproved(1), self.test_account2)
 
-    def test_set_transferFrom(self):
+    def test_transfers_token_from_another_account(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.transferFrom(self.test_account1, self.test_account2, 1)
@@ -88,7 +89,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(0, self.score.balanceOf(self.test_account1))
         self.assertEqual(1, self.score.balanceOf(self.test_account2))
 
-    def test_get_balanceOf(self):
+    def test_gets_token_balance(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.mint(self.test_account2, 2, "http://www.example.com/2")
@@ -99,7 +100,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.balanceOf(self.test_account1), 3)
         self.assertEqual(self.score.balanceOf(self.test_account2), 2)
 
-    def test_set_burn(self):
+    def test_burns_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.burn(1)
@@ -109,16 +110,16 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.message, "Invalid _tokenId. NFT is burned")
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
 
-    def test_error_burn(self):
+    def test_throws_when_burning_without_correct_role(self):
         self.set_msg(self.test_account1)
-        self.score.assignMinter(self.test_account2)
+        self.score.assign_minter(self.test_account2)
 
         with self.assertRaises(IconScoreException) as e:
             self.score.burn(1)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You are not allowed to burn tokens")
 
-    def test_error_transfer(self):
+    def test_throws_when_transferring_without_permission(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.mint(self.test_account2, 2, "http://www.example.com/2")
@@ -127,19 +128,19 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You don't have permission to transfer this NFT")
 
-    def test_error_ownerOf(self):
+    def test_throws_when_checking_owner_of_unminted_token(self):
         with self.assertRaises(IconScoreException) as e:
             self.score.ownerOf(2)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Invalid _tokenId. NFT is not minted")
 
-    def test_get_tokenURI(self):
+    def test_gets_token_URI(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
 
         self.assertEqual(self.score.tokenURI(1), "http://www.example.com/1")
 
-    def test_get_tokenOfOwnerByIndex(self):
+    def test_gets_correct_token_of_owner_by_index(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.mint(self.test_account2, 2, "http://www.example.com/2")
@@ -153,9 +154,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 1), 2)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 2), 4)
 
-    def test_get_tokenOfOwnerByIndex_after_burn(self):
+    def test_gets_correct_token_of_owner_by_index_after_burning(self):
         self.set_msg(self.test_account1)
-        self.score.assignMinter(self.test_account2)
+        self.score.assign_minter(self.test_account2)
         self.set_msg(self.test_account2)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.mint(self.test_account1, 2, "http://www.example.com/2")
@@ -165,74 +166,14 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 3)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 2)
 
-    def test_get_tokenOfOwnerByIndex_after_transfer(self):
+    def test_gets_correct_token_of_owner_by_index_after_transferring(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 1, "http://www.example.com/1")
         self.score.transfer(self.test_account2, 1)
 
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 0)
 
-    def test_get_tokenByIndex_after_burn(self):
-        self.set_msg(self.test_account1)
-        self.score.assignMinter(self.test_account2)
-        self.set_msg(self.test_account2)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
-        self.score.burn(1)
-        self.score.burn(3)
-        self.score.burn(2)
-
-        self.assertEqual(self.score.tokenByIndex(1), 0)
-        self.assertEqual(self.score.tokenByIndex(2), 0)
-        self.assertEqual(self.score.tokenByIndex(3), 0)
-
-    def test_error_tokenOfOwnerByIndex(self):
-        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 5), 0)
-
-    def test_get_ownedTokens(self):
-        self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
-        expectedAccount1Tokens = [1, 2]
-        expectedAccount2Tokens = []
-
-        self.assertEqual(self.score.ownedTokens(self.test_account1), expectedAccount1Tokens)
-        self.assertEqual(self.score.ownedTokens(self.test_account2), expectedAccount2Tokens)
-
-    def test_get_findTokenIndexByTokenId(self):
-        self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-
-        self.assertEqual(self.score._findTokenIndexByTokenId(self.test_account1, 12), 2)
-
-    def test_emptyResult_findTokenIndexByTokenId(self):
-        self.assertEqual(self.score._findTokenIndexByTokenId(self.test_account1, 99), 0)
-
-    def test_get_ownerTokenIndex(self):
-        self.set_msg(self.test_account1)
-        self.score._setOwnerTokenIndex(self.test_account1, 1, 11)
-        self.score._setOwnerTokenIndex(self.test_account1, 2, 12)
-
-        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 12)
-
-    def test_ownerTokenIndex_mint_and_burn(self):
-        self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.mint(self.test_account1, 14, "http://www.example.com/4")
-        self.score._burn(12)
-
-        self.assertEqual(self.score._ownedTokenCount[self.test_account1], 3)
-        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 14)
-        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 3), 13)
-
-    def test_ownerTokenIndex_transfer(self):
+    def test_gets_correct_token_of_owner_by_index_after_transferring_from_another_account(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
@@ -245,21 +186,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 1), 14)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account2, 2), 12)
 
-    def test_incrementTotalSupply(self):
-        self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-
-        self.assertEqual(self.score.totalSupply(), 2)
-
-    def test_decrementTotalSupply(self):
-        self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.burn(11)
-
-        self.assertEqual(self.score.totalSupply(), 0)
-
-    def test_token_indexes(self):
+    def test_gets_correct_token_by_index_after_burning(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
@@ -271,194 +198,244 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenByIndex(2), 14)
         self.assertEqual(self.score.tokenByIndex(3), 13)
         self.assertEqual(self.score.tokenByIndex(4), 0)
-        self.assertEqual(self.score._getTokenIndexByTokenId(11), 1)
-        self.assertEqual(self.score._getTokenIndexByTokenId(12), 0)
-        self.assertEqual(self.score._getTokenIndexByTokenId(13), 3)
-        self.assertEqual(self.score._getTokenIndexByTokenId(14), 2)
+        self.assertEqual(self.score._get_token_index_by_token_id(11), 1)
+        self.assertEqual(self.score._get_token_index_by_token_id(12), 0)
+        self.assertEqual(self.score._get_token_index_by_token_id(13), 3)
+        self.assertEqual(self.score._get_token_index_by_token_id(14), 2)
 
-    def test_listToken(self):
+    def test_gets_no_tokens_by_index_after_burning_all(self):
+        self.set_msg(self.test_account1)
+        self.score.assign_minter(self.test_account2)
+        self.set_msg(self.test_account2)
+        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
+        self.score.burn(1)
+        self.score.burn(3)
+        self.score.burn(2)
+
+        self.assertEqual(self.score.tokenByIndex(1), 0)
+        self.assertEqual(self.score.tokenByIndex(2), 0)
+        self.assertEqual(self.score.tokenByIndex(3), 0)
+
+    def test_gets_owned_tokens(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
+        expectedAccount1Tokens = [1, 2]
+        expectedAccount2Tokens = []
+
+        self.assertEqual(self.score.owned_tokens(self.test_account1), expectedAccount1Tokens)
+        self.assertEqual(self.score.owned_tokens(self.test_account2), expectedAccount2Tokens)
+
+    def test_gets_token_using_token_index(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+
+        self.assertEqual(self.score._find_token_index_by_token_id(self.test_account1, 12), 2)
+
+    def test_gets_no_token_when_using_nonexistent_index(self):
+        self.assertEqual(self.score._find_token_index_by_token_id(self.test_account1, 99), 0)
+
+    def test_increments_total_supply(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+
+        self.assertEqual(self.score.totalSupply(), 2)
+
+    def test_decrements_total_supply(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.burn(11)
+
+        self.assertEqual(self.score.totalSupply(), 0)
+
+    def test_lists_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account2, 12, "http://www.example.com/1")
         self.score.mint(self.test_account1, 13, "http://www.example.com/2")
-        self.score.listToken(11, 100000000000000000)
-        self.score.listToken(13, 300000000000000000)
+        self.score.list_token(11, 100000000000000000)
+        self.score.list_token(13, 300000000000000000)
         self.set_msg(self.test_account2)
-        self.score.listToken(12, 200000000000000000)
+        self.score.list_token(12, 200000000000000000)
 
-        self.assertEqual(self.score.totalListedTokenCount(), 3)
-        self.assertEqual(self.score.getTokenPrice(11), 100000000000000000)
-        self.assertEqual(self.score.getTokenPrice(12), 200000000000000000)
-        self.assertEqual(self.score.getTokenPrice(13), 300000000000000000)
-        self.assertEqual(self.score.getListedTokenByIndex(1), 11)
-        self.assertEqual(self.score.getListedTokenByIndex(2), 13)
-        self.assertEqual(self.score.getListedTokenByIndex(3), 12)
-        self.assertEqual(self.score._getOwnerListedTokenIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score._getOwnerListedTokenIndex(self.test_account2, 1), 12)
-        self.assertEqual(self.score._getOwnerListedTokenIndex(self.test_account1, 2), 13)
+        self.assertEqual(self.score.total_listed_token_count(), 3)
+        self.assertEqual(self.score.get_token_price(11), 100000000000000000)
+        self.assertEqual(self.score.get_token_price(12), 200000000000000000)
+        self.assertEqual(self.score.get_token_price(13), 300000000000000000)
+        self.assertEqual(self.score.get_listed_token_by_index(1), 11)
+        self.assertEqual(self.score.get_listed_token_by_index(2), 13)
+        self.assertEqual(self.score.get_listed_token_by_index(3), 12)
+        self.assertEqual(self.score._get_owner_listed_token_index(self.test_account1, 1), 11)
+        self.assertEqual(self.score._get_owner_listed_token_index(self.test_account2, 1), 12)
+        self.assertEqual(self.score._get_owner_listed_token_index(self.test_account1, 2), 13)
 
-    def test_get_listedTokens(self):
+    def test_gets_listed_tokens(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
         self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.listToken(11, 100000000000000000)
-        self.score.listToken(12, 200000000000000000)
-        self.score.listToken(13, 300000000000000000)
+        self.score.list_token(11, 100000000000000000)
+        self.score.list_token(12, 200000000000000000)
+        self.score.list_token(13, 300000000000000000)
 
-        listedTokens = self.score.listedTokens()
+        listed_tokens = self.score.listed_tokens()
 
-        expectedTokens = {11: 100000000000000000, 12: 200000000000000000, 13: 300000000000000000}
+        expected_tokens = {11: 100000000000000000, 12: 200000000000000000, 13: 300000000000000000}
 
-        self.assertEqual(listedTokens, expectedTokens)
+        self.assertEqual(listed_tokens, expected_tokens)
 
-    def test_get_listedTokens_over_max_iteration(self):
+    def test_gets_listed_tokens_with_offset(self):
         self.set_msg(self.test_account1)
-        self.score.MAX_ITERATION_LOOP = 2
+        self.score._MAX_ITERATION_LOOP = 2
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
         self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.listToken(11, 100000000000000000)
-        self.score.listToken(12, 200000000000000000)
-        self.score.listToken(13, 300000000000000000)
+        self.score.list_token(11, 100000000000000000)
+        self.score.list_token(12, 200000000000000000)
+        self.score.list_token(13, 300000000000000000)
 
-        listedTokens = self.score.listedTokens()
-        expectedTokens = {11: 100000000000000000, 12: 200000000000000000}
-        offsetTokens = self.score.listedTokens(2)
-        expectedOffsetTokens = {13: 300000000000000000}
+        listed_tokens = self.score.listed_tokens()
+        expected_tokens = {11: 100000000000000000, 12: 200000000000000000}
+        offeset_tokens = self.score.listed_tokens(2)
+        expected_offset_tokens = {13: 300000000000000000}
 
-        self.assertEqual(listedTokens, expectedTokens)
-        self.assertEqual(offsetTokens, expectedOffsetTokens)
+        self.assertEqual(listed_tokens, expected_tokens)
+        self.assertEqual(offeset_tokens, expected_offset_tokens)
 
-    def test_get_ownerListedTokens(self):
+    def test_gets_listed_tokens_of_owner(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
         self.score.mint(self.test_account2, 13, "http://www.example.com/3")
         self.score.mint(self.test_account2, 14, "http://www.example.com/4")
-        self.score.listToken(11, 100000000000000000)
-        self.score.listToken(12, 200000000000000000)
+        self.score.list_token(11, 100000000000000000)
+        self.score.list_token(12, 200000000000000000)
         self.set_msg(self.test_account2)
-        self.score.listToken(13, 300000000000000000)
-        self.score.listToken(14, 400000000000000000)
+        self.score.list_token(13, 300000000000000000)
+        self.score.list_token(14, 400000000000000000)
 
-        firstAccountTokens = self.score.listedTokensByOwner(self.test_account1)
-        firstAccountExpectedTokens = {11: 100000000000000000, 12: 200000000000000000}
-        secondAccountTokens = self.score.listedTokensByOwner(self.test_account2)
-        secondAccountExpectedTokens = {13: 300000000000000000, 14: 400000000000000000}
+        first_account_tokens = self.score.listed_tokens_by_owner(self.test_account1)
+        first_account_expected_tokens = {11: 100000000000000000, 12: 200000000000000000}
+        second_account_tokens = self.score.listed_tokens_by_owner(self.test_account2)
+        second_account_expected_tokens = {13: 300000000000000000, 14: 400000000000000000}
 
-        self.assertEqual(firstAccountTokens, firstAccountExpectedTokens)
-        self.assertEqual(secondAccountTokens, secondAccountExpectedTokens)
+        self.assertEqual(first_account_tokens, first_account_expected_tokens)
+        self.assertEqual(second_account_tokens, second_account_expected_tokens)
 
-    def test_delistToken(self):
+    def test_delists_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
         self.score.mint(self.test_account1, 13, "http://www.example.com/3")
         self.score.mint(self.test_account1, 14, "http://www.example.com/4")
-        self.score.listToken(11, 100000000000000000)
-        self.score.listToken(12, 200000000000000000)
-        self.score.listToken(13, 300000000000000000)
-        self.score.listToken(14, 400000000000000000)
+        self.score.list_token(11, 100000000000000000)
+        self.score.list_token(12, 200000000000000000)
+        self.score.list_token(13, 300000000000000000)
+        self.score.list_token(14, 400000000000000000)
 
-        self.score.delistToken(12)
+        self.score.delist_token(12)
 
-        listedTokens = self.score.listedTokens()
-        expectedTokens = {11: 100000000000000000, 13: 300000000000000000, 14: 400000000000000000}
+        listed_tokens = self.score.listed_tokens()
+        expected_tokens = {11: 100000000000000000, 13: 300000000000000000, 14: 400000000000000000}
 
-        self.assertEqual(listedTokens, expectedTokens)
-        self.assertEqual(self.score.getListedTokenByIndex(1), 11)
-        self.assertEqual(self.score.getListedTokenByIndex(2), 14)
-        self.assertEqual(self.score.getListedTokenByIndex(3), 13)
-        self.assertEqual(self.score.totalListedTokenCount(), 3)
+        self.assertEqual(listed_tokens, expected_tokens)
+        self.assertEqual(self.score.get_listed_token_by_index(1), 11)
+        self.assertEqual(self.score.get_listed_token_by_index(2), 14)
+        self.assertEqual(self.score.get_listed_token_by_index(3), 13)
+        self.assertEqual(self.score.total_listed_token_count(), 3)
 
-    def test_error_delistToken(self):
+    def test_throws_when_delisting_an_unlisted_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         with self.assertRaises(IconScoreException) as e:
-            self.score.delistToken(11)
+            self.score.delist_token(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Token is not listed")
 
-    def test_clearOwnerTokenListing(self):
+    def test_delists_token_and_keeps_correct_indexes(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
         self.score.mint(self.test_account2, 12, "http://www.example.com/2")
         self.score.mint(self.test_account2, 13, "http://www.example.com/3")
         self.score.mint(self.test_account2, 14, "http://www.example.com/4")
         self.score.mint(self.test_account2, 15, "http://www.example.com/5")
-        self.score.listToken(11, 100000000000000000)
+        self.score.list_token(11, 100000000000000000)
 
         self.set_msg(self.test_account2)
-        self.score.listToken(12, 200000000000000000)
-        self.score.listToken(13, 300000000000000000)
-        self.score.listToken(14, 400000000000000000)
-        self.score.listToken(15, 500000000000000000)
+        self.score.list_token(12, 200000000000000000)
+        self.score.list_token(13, 300000000000000000)
+        self.score.list_token(14, 400000000000000000)
+        self.score.list_token(15, 500000000000000000)
 
-        self.score.delistToken(13)
+        self.score.delist_token(13)
 
-        self.assertEqual(self.score.totalListedTokenCount(), 4)
-        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 1)
-        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 3)
-        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account1, 1), 11)
-        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 1), 12)
-        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 2), 15)
-        self.assertEqual(self.score.getListedTokenOfOwnerByIndex(self.test_account2, 3), 14)
+        self.assertEqual(self.score.total_listed_token_count(), 4)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account1), 1)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account2), 3)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 1), 11)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 1), 12)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 2), 15)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 3), 14)
 
-    def test_purchaseToken(self):
+    def test_purchases_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        tokenPrice = 5000000000000000000
-        self.score.listToken(11, tokenPrice)
+        token_price = 5000000000000000000
+        self.score.list_token(11, token_price)
 
-        self.set_msg(self.test_account2, tokenPrice)
-        self.score.purchaseToken(11)
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
 
-        self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - tokenPrice)
+        self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - token_price)
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
         self.assertEqual(self.score.balanceOf(self.test_account2), 1)
-        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 0)
-        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 0)
-        self.assertEqual(self.score.getTokenPrice(11), 0)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account1), 0)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account2), 0)
+        self.assertEqual(self.score.get_token_price(11), 0)
 
-        self.assertEqual(self.score.totalListedTokenCount(), 0)
+        self.assertEqual(self.score.total_listed_token_count(), 0)
 
-    def test_listedTokenCountByOwner_after_burn(self):
+    def test_gets_number_of_listed_tokens_of_owner(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        tokenPrice = 5000000000000000000
-        self.score.listToken(11, tokenPrice)
+        token_price = 5000000000000000000
+        self.score.list_token(11, token_price)
 
-        self.score.assignMinter(self.test_account2)
+        self.score.assign_minter(self.test_account2)
         self.set_msg(self.test_account2)
         self.score.burn(11)
 
-        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 0)
-        self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 0)
-        self.assertEqual(self.score.getListedTokenByIndex(1), 0)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account1), 0)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account2), 0)
+        self.assertEqual(self.score.get_listed_token_by_index(1), 0)
 
-    def test_pauseContract(self):
+    def test_pauses_contract(self):
         self.set_msg(self.test_account1)
-        self.score.pauseContract()
+        self.score.pause_contract()
 
         self.assertEqual(self.score._isPaused.get(), True)
 
-    def test_error_unpauseContract(self):
-        self.set_msg(self.test_account1)
-        with self.assertRaises(IconScoreException) as e:
-            self.score.unpauseContract()
-        self.assertEqual(e.exception.code, 32)
-        self.assertEqual(e.exception.message, "Contract is already unpaused")
-
-    def test_error_pauseContract(self):
+    def test_throws_when_pausing_contract_while_already_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         with self.assertRaises(IconScoreException) as e:
-            self.score.pauseContract()
+            self.score.pause_contract()
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is already paused")
 
-    def test_error_transfer_when_isPaused(self):
+    def test_throws_when_unpausing_contract_while_already_unpaused(self):
+        self.set_msg(self.test_account1)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.unpause_contract()
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Contract is already unpaused")
+
+    def test_throws_when_transferring_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         self.score.mint(self.test_account2, 11, "http://www.example.com/1")
@@ -468,7 +445,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is currently paused")
 
-    def test_transfer_when_isPaused_and_minter(self):
+    def test_transfers_token_when_contract_is_paused_but_has_correct_role(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
@@ -476,32 +453,32 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(self.score.ownerOf(11), self.test_account2)
 
-    def test_listToken_when_isPaused_and_minter(self):
+    def test_lists_token_when_contract_is_paused_but_has_correct_role(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.listToken(11, 100)
+        self.score.list_token(11, 100)
 
-        self.assertEqual(self.score.getTokenPrice(11), 100)
+        self.assertEqual(self.score.get_token_price(11), 100)
 
-    def test_error_list_when_isPaused(self):
+    def test_throws_when_listing_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         self.score.mint(self.test_account2, 11, "http://www.example.com/1")
         with self.assertRaises(IconScoreException) as e:
             self.set_msg(self.test_account2)
-            self.score.listToken(11, 100)
+            self.score.list_token(11, 100)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is currently paused")
 
-    def test_purchaseToken_when_isPaused(self):
+    def test_purchases_token_when_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        tokenPrice = 5000000000000000000
-        self.score.listToken(11, tokenPrice)
+        token_price = 5000000000000000000
+        self.score.list_token(11, token_price)
 
-        self.set_msg(self.test_account2, tokenPrice)
-        self.score.purchaseToken(11)
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
 
         self.assertEqual(self.score.ownerOf(11), self.test_account2)
