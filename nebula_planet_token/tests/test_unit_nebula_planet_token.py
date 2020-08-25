@@ -165,6 +165,28 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 3)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 2)
 
+    def test_get_tokenOfOwnerByIndex_after_transfer(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.transfer(self.test_account2, 1)
+
+        self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 0)
+
+    def test_get_tokenByIndex_after_burn(self):
+        self.set_msg(self.test_account1)
+        self.score.assignMinter(self.test_account2)
+        self.set_msg(self.test_account2)
+        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
+        self.score.burn(1)
+        self.score.burn(3)
+        self.score.burn(2)
+
+        self.assertEqual(self.score.tokenByIndex(1), 0)
+        self.assertEqual(self.score.tokenByIndex(2), 0)
+        self.assertEqual(self.score.tokenByIndex(3), 0)
+
     def test_error_tokenOfOwnerByIndex(self):
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 5), 0)
 
@@ -203,7 +225,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.mint(self.test_account1, 12, "http://www.example.com/2")
         self.score.mint(self.test_account1, 13, "http://www.example.com/3")
         self.score.mint(self.test_account1, 14, "http://www.example.com/4")
-        self.score._burn(self.test_account1, 12)
+        self.score._burn(12)
 
         self.assertEqual(self.score._ownedTokenCount[self.test_account1], 3)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
@@ -413,6 +435,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account1), 0)
         self.assertEqual(self.score.listedTokenCountByOwner(self.test_account2), 0)
+        self.assertEqual(self.score.getListedTokenByIndex(1), 0)
 
     def test_pauseContract(self):
         self.set_msg(self.test_account1)
@@ -482,40 +505,3 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.purchaseToken(11)
 
         self.assertEqual(self.score.ownerOf(11), self.test_account2)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

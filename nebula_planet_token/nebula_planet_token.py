@@ -227,18 +227,19 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         # Burn NFT token
         if self._minter.get() != self.msg.sender:
             revert('You are not allowed to burn tokens')
-        self._burn(self.msg.sender, _tokenId)
+        self._burn(_tokenId)
 
-    def _burn(self, _owner: Address, _tokenId: int):
+    def _burn(self, _tokenId: int):
         self._clear_approval(_tokenId)
         tokenOwner = self.ownerOf(_tokenId)
+        if self.getTokenPrice(_tokenId):
+            self._delistToken(tokenOwner, _tokenId)
         self._remove_tokens_from(tokenOwner, _tokenId)
         self._removeTokenUri(_tokenId)
         tokenIndex = self._getTokenIndexByTokenId(_tokenId)
         self._adjustTokenIndex(tokenIndex)
-        if self.getTokenPrice(_tokenId):
-            self._delistToken(tokenOwner, _tokenId)
-        self.Transfer(_owner, self._ZERO_ADDRESS, _tokenId)
+
+        self.Transfer(tokenOwner, self._ZERO_ADDRESS, _tokenId)
 
     def _is_zero_address(self, _address: Address) -> bool:
         # Check if address is zero address
@@ -330,7 +331,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         lastIndex = self.balanceOf(_from)
         lastToken = self.tokenOfOwnerByIndex(_from, lastIndex)
         index = self._findTokenIndexByTokenId(_from, _tokenId)
-        self._setOwnerTokenIndex(_from, index, lastToken)
+        if lastIndex > 1:
+            self._setOwnerTokenIndex(_from, index, lastToken)
         self._removeOwnerTokenIndex(_from, lastIndex)
 
         # Remove token ownership and subtract owner's token count by 1
@@ -365,7 +367,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         lastToken = self.tokenByIndex(lastIndex)
         self._removeTokenIndex(_tokenIndex)
         self._removeTokenIndex(lastIndex)
-        self._setTokenIndex(_tokenIndex, lastToken)
+        if (lastIndex > 1):
+            self._setTokenIndex(_tokenIndex, lastToken)
         self._decrementTotalSupply()
 
     def _getTokenIndexByTokenId(self, _tokenId: int) -> int:
@@ -515,7 +518,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         lastToken = self.getListedTokenByIndex(lastIndex)
         self._removeListedTokenIndex(activeIndex)
         self._removeListedTokenIndex(lastIndex)
-        self._setListedTokenIndex(activeIndex, lastToken)
+        if (lastIndex > 1):
+            self._setListedTokenIndex(activeIndex, lastToken)
         self._decrementListedTokenCount()
 
     def _removeOwnerTokenListing(self, _owner: Address, _tokenId: int):
@@ -528,7 +532,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         lastToken = self.getListedTokenOfOwnerByIndex(_owner, lastIndex)
         self._removeOwnerListedTokenIndex(_owner, activeIndex)
         self._removeOwnerListedTokenIndex(_owner, lastIndex)
-        self._setOwnerListedTokenIndex(_owner, activeIndex, lastToken)
+        if (lastIndex > 1):
+            self._setOwnerListedTokenIndex(_owner, activeIndex, lastToken)
         self._ownerListedTokenCount[_owner] -= 1
 
     def _getListedTokenOfOwnerByTokenId(self, _owner: Address, _tokenId: int) -> int:
@@ -588,7 +593,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._transfer(seller, buyer, _tokenId)
         self.icx.transfer(seller, tokenPrice)
 
-        # self._removeTokenListing(_tokenId)
         self.PurchaseToken(seller, buyer, _tokenId)
 
     def _getOwnerListedTokenIndex(self, _address: Address, _index: int) -> int:
