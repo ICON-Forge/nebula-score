@@ -17,6 +17,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _MINTER = 'minter'  # Role responsible for minting and burning tokens
     _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
+    _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _MAX_ITERATION_LOOP = 100
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
@@ -35,6 +36,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._treasurer = VarDB(self._TREASURER, db, value_type=Address)
         self._minter = VarDB(self._MINTER, db, value_type=Address)
         self._isPaused = VarDB(self._IS_PAUSED, db, value_type=bool)
+        self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
 
         self._db = db
 
@@ -44,6 +46,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._treasurer.set(self.msg.sender)
         self._minter.set(self.msg.sender)
         self._isPaused.set(False)
+        self._metadataBaseURL.set('')
 
     def on_update(self) -> None:
         super().on_update()
@@ -272,7 +275,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self._is_zero_address(token_URI):
             revert("Invalid _tokenId. NFT is burned")
 
-        return token_URI
+        baseURL = self._metadataBaseURL.get()
+
+        return baseURL + token_URI
 
     def _set_token_URI(self, _tokenId: int, _token_URI: str):
         """
@@ -283,6 +288,12 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     def _remove_token_URI(self, _token_id: int):
         del self._token_URIs[_token_id]
+
+    @external
+    def set_metadata_base_URL(self, _base_URL: str):
+        if self._director.get() != self.msg.sender:
+            revert('You are not set metadata base URL')
+        self._metadataBaseURL.set(_base_URL)
 
     # ================================================
     #  Enumerable extension

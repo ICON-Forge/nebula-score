@@ -50,7 +50,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_mints_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 1, "1.json")
 
         self.assertEqual(self.score.ownerOf(1), self.test_account1)
         self.assertEqual(self.score.balanceOf(self.test_account1), 1)
@@ -60,13 +60,13 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.assign_minter(self.test_account2)
 
         with self.assertRaises(IconScoreException) as e:
-            self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+            self.score.mint(self.test_account1, 1, "1.json")
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You are not allowed to mint tokens")
 
     def test_transfers_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 1, "1.json")
         self.score.transfer(self.test_account2, 1)
 
         self.assertEqual(self.score.ownerOf(1), self.test_account2)
@@ -75,14 +75,14 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_approves_token_transfer(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 1, "1.json")
         self.score.approve(self.test_account2, 1)
 
         self.assertEqual(self.score.getApproved(1), self.test_account2)
 
     def test_transfers_token_from_another_account(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 1, "1.json")
         self.score.transferFrom(self.test_account1, self.test_account2, 1)
 
         self.assertEqual(self.score.ownerOf(1), self.test_account2)
@@ -91,18 +91,18 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_token_balance(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account2, 2, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
-        self.score.mint(self.test_account2, 4, "http://www.example.com/4")
-        self.score.mint(self.test_account1, 5, "http://www.example.com/5")
+        self.score.mint(self.test_account1, 1, "1.json")
+        self.score.mint(self.test_account2, 2, "2.json")
+        self.score.mint(self.test_account1, 3, "3.json")
+        self.score.mint(self.test_account2, 4, "4.json")
+        self.score.mint(self.test_account1, 5, "5.json")
 
         self.assertEqual(self.score.balanceOf(self.test_account1), 3)
         self.assertEqual(self.score.balanceOf(self.test_account2), 2)
 
     def test_burns_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 1, "1.json")
         self.score.burn(1)
         with self.assertRaises(IconScoreException) as e:
             self.score.ownerOf(1)
@@ -121,8 +121,8 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_throws_when_transferring_without_permission(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account2, 2, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 1, "1.json")
+        self.score.mint(self.test_account2, 2, "2.json")
         with self.assertRaises(IconScoreException) as e:
             self.score.transferFrom(self.test_account1, self.test_account2, 2)
         self.assertEqual(e.exception.code, 32)
@@ -136,17 +136,18 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_token_URI(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.set_metadata_base_URL("http://www.projectnebula.app/api/metadata/")
+        self.score.mint(self.test_account1, 1, "1.json")
 
-        self.assertEqual(self.score.tokenURI(1), "http://www.example.com/1")
+        self.assertEqual(self.score.tokenURI(1), "http://www.projectnebula.app/api/metadata/1.json")
 
     def test_gets_correct_token_of_owner_by_index(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account2, 2, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
-        self.score.mint(self.test_account2, 4, "http://www.example.com/4")
-        self.score.mint(self.test_account1, 5, "http://www.example.com/5")
+        self.score.mint(self.test_account1, 1, "1.json")
+        self.score.mint(self.test_account2, 2, "2.json")
+        self.score.mint(self.test_account1, 3, "3.json")
+        self.score.mint(self.test_account2, 4, "4.json")
+        self.score.mint(self.test_account1, 5, "5.json")
 
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 1)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 2), 3)
@@ -158,9 +159,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.set_msg(self.test_account1)
         self.score.assign_minter(self.test_account2)
         self.set_msg(self.test_account2)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 1, "1.json")
+        self.score.mint(self.test_account1, 2, "2.json")
+        self.score.mint(self.test_account1, 3, "3.json")
         self.score.burn(1)
 
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 3)
@@ -168,17 +169,17 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_correct_token_of_owner_by_index_after_transferring(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 1, "1.json")
         self.score.transfer(self.test_account2, 1)
 
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 0)
 
     def test_gets_correct_token_of_owner_by_index_after_transferring_from_another_account(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.mint(self.test_account2, 14, "http://www.example.com/4")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
+        self.score.mint(self.test_account2, 14, "4.json")
         self.score.transferFrom(self.test_account1, self.test_account2, 12)
 
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 11)
@@ -188,10 +189,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_correct_token_by_index_after_burning(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.mint(self.test_account1, 14, "http://www.example.com/4")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
+        self.score.mint(self.test_account1, 14, "4.json")
         self.score.burn(12)
 
         self.assertEqual(self.score.tokenByIndex(1), 11)
@@ -207,9 +208,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.set_msg(self.test_account1)
         self.score.assign_minter(self.test_account2)
         self.set_msg(self.test_account2)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 3, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 1, "1.json")
+        self.score.mint(self.test_account1, 2, "2.json")
+        self.score.mint(self.test_account1, 3, "3.json")
         self.score.burn(1)
         self.score.burn(3)
         self.score.burn(2)
@@ -220,8 +221,8 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_owned_tokens(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 1, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 2, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 1, "1.json")
+        self.score.mint(self.test_account1, 2, "2.json")
         expectedAccount1Tokens = [1, 2]
         expectedAccount2Tokens = []
 
@@ -230,9 +231,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_token_using_token_index(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
 
         self.assertEqual(self.score._find_token_index_by_token_id(self.test_account1, 12), 2)
 
@@ -241,23 +242,23 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_increments_total_supply(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
 
         self.assertEqual(self.score.totalSupply(), 2)
 
     def test_decrements_total_supply(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         self.score.burn(11)
 
         self.assertEqual(self.score.totalSupply(), 0)
 
     def test_lists_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account2, 12, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account2, 12, "1.json")
+        self.score.mint(self.test_account1, 13, "2.json")
         self.score.list_token(11, 100000000000000000)
         self.score.list_token(13, 300000000000000000)
         self.set_msg(self.test_account2)
@@ -276,9 +277,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_listed_tokens(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
         self.score.list_token(11, 100000000000000000)
         self.score.list_token(12, 200000000000000000)
         self.score.list_token(13, 300000000000000000)
@@ -292,9 +293,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_gets_listed_tokens_with_offset(self):
         self.set_msg(self.test_account1)
         self.score._MAX_ITERATION_LOOP = 2
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
         self.score.list_token(11, 100000000000000000)
         self.score.list_token(12, 200000000000000000)
         self.score.list_token(13, 300000000000000000)
@@ -309,10 +310,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_listed_tokens_of_owner(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account2, 13, "http://www.example.com/3")
-        self.score.mint(self.test_account2, 14, "http://www.example.com/4")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account2, 13, "3.json")
+        self.score.mint(self.test_account2, 14, "4.json")
         self.score.list_token(11, 100000000000000000)
         self.score.list_token(12, 200000000000000000)
         self.set_msg(self.test_account2)
@@ -329,10 +330,10 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_delists_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.mint(self.test_account1, 14, "http://www.example.com/4")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
+        self.score.mint(self.test_account1, 14, "4.json")
         self.score.list_token(11, 100000000000000000)
         self.score.list_token(12, 200000000000000000)
         self.score.list_token(13, 300000000000000000)
@@ -351,7 +352,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_throws_when_delisting_an_unlisted_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         with self.assertRaises(IconScoreException) as e:
             self.score.delist_token(11)
         self.assertEqual(e.exception.code, 32)
@@ -359,12 +360,12 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_delists_token_and_keeps_correct_indexes(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
-        self.score.mint(self.test_account2, 14, "http://www.example.com/4")
-        self.score.mint(self.test_account2, 15, "http://www.example.com/5")
-        self.score.mint(self.test_account2, 16, "http://www.example.com/6")
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account1, 12, "2.json")
+        self.score.mint(self.test_account1, 13, "3.json")
+        self.score.mint(self.test_account2, 14, "4.json")
+        self.score.mint(self.test_account2, 15, "5.json")
+        self.score.mint(self.test_account2, 16, "6.json")
         self.score.list_token(11, 100000000000000000)
         self.score.list_token(12, 200000000000000000)
         self.score.list_token(13, 300000000000000000)
@@ -397,7 +398,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_purchases_token(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         token_price = 5000000000000000000
         self.score.list_token(11, token_price)
 
@@ -415,7 +416,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_gets_number_of_listed_tokens_of_owner(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         token_price = 5000000000000000000
         self.score.list_token(11, token_price)
 
@@ -451,7 +452,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_throws_when_transferring_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
-        self.score.mint(self.test_account2, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account2, 11, "1.json")
         with self.assertRaises(IconScoreException) as e:
             self.set_msg(self.test_account2)
             self.score.transfer(self.test_account1, 11)
@@ -461,7 +462,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_transfers_token_when_contract_is_paused_but_has_correct_role(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         self.score.transfer(self.test_account2, 11)
 
         self.assertEqual(self.score.ownerOf(11), self.test_account2)
@@ -469,7 +470,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_lists_token_when_contract_is_paused_but_has_correct_role(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         self.score.list_token(11, 100)
 
         self.assertEqual(self.score.get_token_price(11), 100)
@@ -477,7 +478,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_throws_when_listing_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
-        self.score.mint(self.test_account2, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account2, 11, "1.json")
         with self.assertRaises(IconScoreException) as e:
             self.set_msg(self.test_account2)
             self.score.list_token(11, 100)
@@ -487,7 +488,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_purchases_token_when_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
-        self.score.mint(self.test_account1, 11, "http://www.example.com/1")
+        self.score.mint(self.test_account1, 11, "1.json")
         token_price = 5000000000000000000
         self.score.list_token(11, token_price)
 
