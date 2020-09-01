@@ -377,11 +377,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.score.delist_token(15)
 
-
         self.set_msg(self.test_account1)
 
         self.score.delist_token(12)
-
 
         self.assertEqual(self.score.total_listed_token_count(), 4)
         self.assertEqual(self.score.listed_token_count_by_owner(self.test_account1), 2)
@@ -432,11 +430,11 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.set_msg(self.test_account1)
         self.score.pause_contract()
 
-        self.assertEqual(self.score._isPaused.get(), True)
+        self.assertEqual(self.score._is_paused.get(), True)
 
     def test_throws_when_pausing_contract_while_already_paused(self):
         self.set_msg(self.test_account1)
-        self.score._isPaused.set(True)
+        self.score._is_paused.set(True)
         with self.assertRaises(IconScoreException) as e:
             self.score.pause_contract()
         self.assertEqual(e.exception.code, 32)
@@ -451,7 +449,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_throws_when_transferring_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
-        self.score._isPaused.set(True)
+        self.score._is_paused.set(True)
         self.score.mint(self.test_account2, 11, "1.json")
         with self.assertRaises(IconScoreException) as e:
             self.set_msg(self.test_account2)
@@ -459,17 +457,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is currently paused")
 
-    # def test_transfers_token_when_contract_is_paused(self):
-    #     self.set_msg(self.test_account1)
-    #     self.score._isPaused.set(True)
-    #     self.score.mint(self.test_account1, 11, "1.json")
-    #     self.score.transfer(self.test_account2, 11)
-    #
-    #     self.assertEqual(self.score.ownerOf(11), self.test_account2)
-
     def test_lists_token_when_contract_is_paused_but_has_correct_role(self):
         self.set_msg(self.test_account1)
-        self.score._isPaused.set(True)
+        self.score._is_paused.set(True)
         self.score.mint(self.test_account1, 11, "1.json")
         self.score.list_token(11, 100)
 
@@ -477,7 +467,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_throws_when_listing_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
-        self.score._isPaused.set(True)
+        self.score._is_paused.set(True)
         self.score.mint(self.test_account2, 11, "1.json")
         with self.assertRaises(IconScoreException) as e:
             self.set_msg(self.test_account2)
@@ -487,7 +477,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_throws_when_purchasing_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
-        self.score._isPaused.set(True)
+        self.score._is_paused.set(True)
         self.score.mint(self.test_account1, 11, "1.json")
         token_price = 5000000000000000000
         self.score.list_token(11, token_price)
@@ -497,3 +487,52 @@ class TestNebulaPlanetToken(ScoreTestCase):
             self.score.purchase_token(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is currently paused")
+
+    def test_restricts_token_sale(self):
+        self.set_msg(self.test_account1)
+        self.score.restrict_sale()
+
+        self.assertEqual(self.score._is_restricted_sale.get(), True)
+
+    def test_throws_when_restricting_sale_while_already_restricted(self):
+        self.set_msg(self.test_account1)
+        self.score._is_restricted_sale.set(True)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.restrict_sale()
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token sale is already restricted")
+
+    def test_throws_when_unrestricting_sale_while_already_unrestricted(self):
+        self.set_msg(self.test_account1)
+        with self.assertRaises(IconScoreException) as e:
+            self.score.unrestrict_sale()
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token sale is already without restrictions")
+
+    def test_throws_when_listing_token_while_sale_is_restricted(self):
+        self.set_msg(self.test_account1)
+        self.score._is_restricted_sale.set(True)
+        self.score.mint(self.test_account2, 11, "1.json")
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.list_token(11, 100)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Listing tokens is currently disabled")
+
+    def test_throws_when_approving_token_while_sale_is_restricted(self):
+        self.set_msg(self.test_account1)
+        self.score._is_restricted_sale.set(True)
+        self.score.mint(self.test_account2, 11, "1.json")
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.approve(self.test_account1, 11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Approving tokens is currently disabled")
+
+    def test_lists_token_when_sale_is_restricted_but_has_correct_role(self):
+        self.set_msg(self.test_account1)
+        self.score._is_restricted_sale.set(True)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.list_token(11, 100)
+
+        self.assertEqual(self.score.get_token_price(11), 100)

@@ -17,6 +17,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _MINTER = 'minter'  # Role responsible for minting and burning tokens
     _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
+    _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _MAX_ITERATION_LOOP = 100
 
@@ -35,7 +36,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._director = VarDB(self._DIRECTOR, db, value_type=Address)
         self._treasurer = VarDB(self._TREASURER, db, value_type=Address)
         self._minter = VarDB(self._MINTER, db, value_type=Address)
-        self._isPaused = VarDB(self._IS_PAUSED, db, value_type=bool)
+        self._is_paused = VarDB(self._IS_PAUSED, db, value_type=bool)
+        self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
 
         self._db = db
@@ -45,7 +47,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._director.set(self.msg.sender)
         self._treasurer.set(self.msg.sender)
         self._minter.set(self.msg.sender)
-        self._isPaused.set(False)
+        self._is_paused.set(False)
+        self._is_restricted_sale.set(False)
         self._metadataBaseURL.set('')
 
     def on_update(self) -> None:
@@ -59,9 +62,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self._treasurer.get() != self.msg.sender:
             revert('You are not allowed to deposit to this contract')
-
-    # def _isPaused(self):
-    #     self._isPaused()
 
     @external
     def withdraw(self, amount: int):
@@ -92,19 +92,33 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def pause_contract(self):
         if self._director.get() != self.msg.sender:
             revert('You are not allowed to pause the contract')
-        if self._isPaused.get():
+        if self._is_paused.get():
             revert('Contract is already paused')
-        self._isPaused.set(True)
-        self.PauseContract()
+        self._is_paused.set(True)
 
     @external
     def unpause_contract(self):
         if self._director.get() != self.msg.sender:
             revert('You are not allowed to unpause the contract')
-        if not self._isPaused.get():
+        if not self._is_paused.get():
             revert('Contract is already unpaused')
-        self._isPaused.set(False)
-        self.UnpauseContract()
+        self._is_paused.set(False)
+
+    @external
+    def restrict_sale(self):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to toggle sale restriction')
+        if self._is_restricted_sale.get():
+            revert('Token sale is already restricted')
+        self._is_restricted_sale.set(True)
+
+    @external
+    def unrestrict_sale(self):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to toggle sale restriction')
+        if not self._is_restricted_sale.get():
+            revert('Token sale is already without restrictions')
+        self._is_restricted_sale.set(False)
 
     @external(readonly=True)
     def name(self) -> str:
@@ -159,6 +173,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         The zero address indicates there is no approved address.
         Throws unless self.msg.sender is the current NFT owner.
         """
+        if self._is_restricted_sale.get():
+            revert("Approving tokens is currently disabled")
         owner = self.ownerOf(_tokenId)
         if _to == owner:
             revert("Can't approve to yourself.")
@@ -178,7 +194,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self.ownerOf(_tokenId) != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._isPaused.get():
+        if self._is_paused.get():
             revert("Contract is currently paused")
         self._transfer(self.msg.sender, _to, _tokenId)
 
@@ -194,7 +210,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self.ownerOf(_tokenId) != self.msg.sender and \
                 self._token_approvals[_tokenId] != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._isPaused.get() and not self.msg.sender == self._minter.get():
+        if self._is_paused.get() and not self.msg.sender == self._minter.get():
             revert("Contract is currently paused")
         self._transfer(_from, _to, _tokenId)
 
@@ -440,7 +456,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         owner = self.ownerOf(_token_id)
         sender = self.msg.sender
-        if self._isPaused.get() and not self.msg.sender == self._minter.get():
+        if self._is_restricted_sale.get() and not sender == self._minter.get():
+            revert("Listing tokens is currently disabled")
+        if self._is_paused.get() and not sender == self._minter.get():
             revert("Contract is currently paused")
         if sender != owner:
             revert("You do not own this NFT")
@@ -586,7 +604,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         otherwise throws an error. When a correct amount is sent, the NFT will be sent from seller to buyer, and SCORE
         will send token's price worth of ICX to seller (minus fee, if applicable).
         """
-        if self._isPaused.get():
+        if self._is_paused.get():
             revert("Contract is currently paused")
         token_price = self.get_token_price(_token_id)
         if self.msg.value != token_price:
@@ -680,12 +698,4 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     @eventlog(indexed=2)
     def AssignRole(self, _role: str, _owner: Address):
-        pass
-
-    @eventlog
-    def PauseContract(self):
-        pass
-
-    @eventlog
-    def UnpauseContract(self):
         pass
