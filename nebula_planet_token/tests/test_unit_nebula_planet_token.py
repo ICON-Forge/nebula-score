@@ -459,13 +459,13 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is currently paused")
 
-    def test_transfers_token_when_contract_is_paused_but_has_correct_role(self):
-        self.set_msg(self.test_account1)
-        self.score._isPaused.set(True)
-        self.score.mint(self.test_account1, 11, "1.json")
-        self.score.transfer(self.test_account2, 11)
-
-        self.assertEqual(self.score.ownerOf(11), self.test_account2)
+    # def test_transfers_token_when_contract_is_paused(self):
+    #     self.set_msg(self.test_account1)
+    #     self.score._isPaused.set(True)
+    #     self.score.mint(self.test_account1, 11, "1.json")
+    #     self.score.transfer(self.test_account2, 11)
+    #
+    #     self.assertEqual(self.score.ownerOf(11), self.test_account2)
 
     def test_lists_token_when_contract_is_paused_but_has_correct_role(self):
         self.set_msg(self.test_account1)
@@ -485,14 +485,15 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Contract is currently paused")
 
-    def test_purchases_token_when_contract_is_paused(self):
+    def test_throws_when_purchasing_token_while_contract_is_paused(self):
         self.set_msg(self.test_account1)
         self.score._isPaused.set(True)
         self.score.mint(self.test_account1, 11, "1.json")
         token_price = 5000000000000000000
         self.score.list_token(11, token_price)
 
-        self.set_msg(self.test_account2, token_price)
-        self.score.purchase_token(11)
-
-        self.assertEqual(self.score.ownerOf(11), self.test_account2)
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2, token_price)
+            self.score.purchase_token(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Contract is currently paused")

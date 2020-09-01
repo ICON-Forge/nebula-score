@@ -178,7 +178,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self.ownerOf(_tokenId) != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._isPaused.get() and not self.msg.sender == self._minter.get():
+        if self._isPaused.get():
             revert("Contract is currently paused")
         self._transfer(self.msg.sender, _to, _tokenId)
 
@@ -586,6 +586,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         otherwise throws an error. When a correct amount is sent, the NFT will be sent from seller to buyer, and SCORE
         will send token's price worth of ICX to seller (minus fee, if applicable).
         """
+        if self._isPaused.get():
+            revert("Contract is currently paused")
         token_price = self.get_token_price(_token_id)
         if self.msg.value != token_price:
             revert(f'Sent ICX amount ({self.msg.value}) does not match token price ({token_price})')
