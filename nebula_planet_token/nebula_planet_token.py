@@ -69,13 +69,12 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         treasurer = self._treasurer.get()
         if treasurer != self.msg.sender:
             revert('You are not allowed to withdraw from this contract')
-        self.icx.send(treasurer, amount)
+        self.icx.transfer(treasurer, amount)
 
     @external
     def assign_treasurer(self, _address: Address):
         if self._director.get() != self.msg.sender:
             revert('You are not allowed to assign roles')
-        self._treasurer.remove()
         self._treasurer.set(_address)
         self.AssignRole("Treasurer", _address)
 
@@ -83,7 +82,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def assign_minter(self, _address: Address):
         if self._director.get() != self.msg.sender:
             revert('You are not allowed to assign roles')
-        self._minter.remove()
         self._minter.set(_address)
         self.AssignRole("Minter", _address)
 
@@ -290,6 +288,12 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     #  Enumerable extension
     # ================================================
 
+    def _token(self, _token_id: int) -> VarDB:
+        return VarDB(f'TOKEN_{str(_token_id)}', self._db, value_type=int)
+
+    def _token_index(self, _index: int) -> VarDB:
+        return VarDB(f'INDEX_{str(_index)}', self._db, value_type=int)
+
     @external(readonly=True)
     def owned_tokens(self, _owner: Address) -> list:
         """
@@ -344,7 +348,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         Returns the _token_id for '_index'th NFT. Returns 0 for invalid result.
         """
-        result = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
+        result = self._token_index(_index).get()
         if result:
             return result
         else:
@@ -372,20 +376,20 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._decrement_total_supply()
 
     def _get_token_index_by_token_id(self, _token_id: int) -> int:
-        result = VarDB(f'TOKEN_{str(_token_id)}', self._db, value_type=int).get()
+        result = self._token(_token_id).get()
         if result:
             return result
         else:
             return 0
 
     def _set_token_index(self, _index: int, _token_id: int):
-        VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).set(_token_id)
-        VarDB(f'TOKEN_{str(_token_id)}', self._db, value_type=int).set(_index)
+        self._token_index(_index).set(_token_id)
+        self._token(_token_id).set(_index)
 
     def _remove_token_index(self, _index: int):
-        token_id = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
-        VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).remove()
-        VarDB(f'TOKEN_{str(token_id)}', self._db, value_type=int).remove()
+        token_id = self._token_index(_index).get()
+        self._token_index(_index).remove()
+        self._token(token_id).remove()
 
     def _find_token_index_by_token_id(self, _owner: Address, _token_id: int) -> int:
         # Returns index of a given _token_id of _owner. Returns 0 when no result.
@@ -551,27 +555,15 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     def clear_token_price(self, _tokenId: int):
         """ Returns price the token is being sold for. """
-        DictDB(self._LISTED_TOKEN_PRICES, self.db, value_type=int).remove(str(_tokenId))
+        self._listed_token_prices.remove(str(_tokenId))
 
     @external(readonly=True)
     def get_listed_token_by_index(self, _index: int) -> int:
         """ Returns token ID on _index'th position from all tokens listed for sale. Can be used iterate through
         all valid tokens that are for sale. """
-        result = VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int).get()
+        result = self._listed_token_index(_index).get()
         if result:
             return result
-        else:
-            return 0
-
-    @external(readonly=True)
-    def get_listed_token_of_owner_by_index(self, _owner: Address, _index: int) -> int:
-        """
-        Returns token ID from _owner's listed tokens on index number _index. When used together with
-        listed_token_count_by_owner(), this method can be used to iterate through tokens owned by _owner on client side.
-        """
-        result = VarDB(f'LISTED_{str(_owner)}_{str(_index)}', self._db, value_type=str).get()
-        if result:
-            return int(result)
         else:
             return 0
 
@@ -595,14 +587,32 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         self.PurchaseToken(seller, buyer, _token_id)
 
-    def _get_owner_listed_token_index(self, _address: Address, _index: int) -> int:
-        return int(VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).get())
+    def _listed_token(self, _token_id: int) -> VarDB:
+        return VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int)
+
+    def _listed_token_index(self, _index: int) -> VarDB:
+        return VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int)
+
+    def _owner_listed_token_index(self, _address: Address, _index: int) -> VarDB:
+        return VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str)
+
+    @external(readonly=True)
+    def get_listed_token_of_owner_by_index(self, _owner: Address, _index: int) -> int:
+        """
+        Returns token ID from _owner's listed tokens on index number _index. When used together with
+        listed_token_count_by_owner(), this method can be used to iterate through tokens owned by _owner on client side.
+        """
+        result = self._owner_listed_token_index(_owner, _index).get()
+        if result:
+            return int(result)
+        else:
+            return 0
 
     def _set_owner_listed_token_index(self, _address: Address, _index: int, _token_id: int):
-        VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).set(str(_token_id))
+        self._owner_listed_token_index(_address, _index).set(str(_token_id))
 
     def _remove_owner_listed_token_index(self, _address: Address, _index: int):
-        VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str).remove()
+        self._owner_listed_token_index(_address, _index).remove()
 
     def _decrement_listed_token_count(self):
         self._total_listed_token_count.set(self._total_listed_token_count.get() - 1)
@@ -611,20 +621,20 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._total_listed_token_count.set(self._total_listed_token_count.get() + 1)
 
     def _get_listed_token_index_by_token_id(self, _token_id: int) -> int:
-        result = VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int).get()
+        result = self._listed_token(_token_id).get()
         if result:
             return result
         else:
             return 0
 
     def _set_listed_token_index(self, _index: int, _token_id: int):
-        VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int).set(_token_id)
-        VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int).set(_index)
+        self._listed_token_index(_index).set(_token_id)
+        self._listed_token(_token_id).set(_index)
 
     def _remove_listed_token_index(self, _index: int):
-        token_id = VarDB(f'INDEX_{str(_index)}', self._db, value_type=int).get()
-        VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int).remove()
-        VarDB(f'LISTED_TOKEN_{str(token_id)}', self._db, value_type=int).remove()
+        token_id = self._listed_token_index(_index).get()
+        self._listed_token_index(_index).remove()
+        self._listed_token(token_id).remove()
 
     def _find_listed_token_index_by_token_id(self, _owner: Address, _token_id: int) -> int:
         # Returns listing index of a given _token_id of _owner. Returns 0 when no result.

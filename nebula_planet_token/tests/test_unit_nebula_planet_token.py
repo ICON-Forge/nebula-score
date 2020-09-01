@@ -270,9 +270,9 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.get_listed_token_by_index(1), 11)
         self.assertEqual(self.score.get_listed_token_by_index(2), 13)
         self.assertEqual(self.score.get_listed_token_by_index(3), 12)
-        self.assertEqual(self.score._get_owner_listed_token_index(self.test_account1, 1), 11)
-        self.assertEqual(self.score._get_owner_listed_token_index(self.test_account2, 1), 12)
-        self.assertEqual(self.score._get_owner_listed_token_index(self.test_account1, 2), 13)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 1), 11)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 1), 12)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 2), 13)
 
     def test_gets_listed_tokens(self):
         self.set_msg(self.test_account1)
@@ -360,27 +360,40 @@ class TestNebulaPlanetToken(ScoreTestCase):
     def test_delists_token_and_keeps_correct_indexes(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "http://www.example.com/1")
-        self.score.mint(self.test_account2, 12, "http://www.example.com/2")
-        self.score.mint(self.test_account2, 13, "http://www.example.com/3")
+        self.score.mint(self.test_account1, 12, "http://www.example.com/2")
+        self.score.mint(self.test_account1, 13, "http://www.example.com/3")
         self.score.mint(self.test_account2, 14, "http://www.example.com/4")
         self.score.mint(self.test_account2, 15, "http://www.example.com/5")
+        self.score.mint(self.test_account2, 16, "http://www.example.com/6")
         self.score.list_token(11, 100000000000000000)
-
-        self.set_msg(self.test_account2)
         self.score.list_token(12, 200000000000000000)
         self.score.list_token(13, 300000000000000000)
+
+        self.set_msg(self.test_account2)
         self.score.list_token(14, 400000000000000000)
         self.score.list_token(15, 500000000000000000)
+        self.score.list_token(16, 600000000000000000)
 
-        self.score.delist_token(13)
+        self.score.delist_token(15)
+
+
+        self.set_msg(self.test_account1)
+
+        self.score.delist_token(12)
+
 
         self.assertEqual(self.score.total_listed_token_count(), 4)
-        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account1), 1)
-        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account2), 3)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account1), 2)
+        self.assertEqual(self.score.listed_token_count_by_owner(self.test_account2), 2)
         self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 1), 11)
-        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 1), 12)
-        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 2), 15)
-        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 3), 14)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 2), 13)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 1), 14)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 2), 16)
+
+        self.assertEqual(self.score._get_listed_token_index_by_token_id(11), 1)
+        self.assertEqual(self.score._get_listed_token_index_by_token_id(13), 3)
+        self.assertEqual(self.score._get_listed_token_index_by_token_id(14), 4)
+        self.assertEqual(self.score._get_listed_token_index_by_token_id(16), 2)
 
     def test_purchases_token(self):
         self.set_msg(self.test_account1)
