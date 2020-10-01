@@ -295,20 +295,26 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         return baseURL + token_URI
 
-    def _set_token_URI(self, _tokenId: int, _token_URI: str):
+    @external
+    def set_token_URI(self, _token_id: int, _token_URI: str):
         """
         Set token URI for a given token. Throws if a token does not exist.
         """
-        self._ensure_positive(_tokenId)
-        self._token_URIs[_tokenId] = _token_URI
+        if self._minter.get() != self.msg.sender:
+            revert('You do not have permission set token URI')
+        self._set_token_URI(_token_id, _token_URI)
+
+    def _set_token_URI(self, _token_id: int, _token_URI: str):
+        self._ensure_positive(_token_id)
+        self._token_URIs[_token_id] = _token_URI
 
     def _remove_token_URI(self, _token_id: int):
         del self._token_URIs[_token_id]
 
     @external
     def set_metadata_base_URL(self, _base_URL: str):
-        if self._director.get() != self.msg.sender:
-            revert('You are not set metadata base URL')
+        if self._minter.get() != self.msg.sender:
+            revert('You do not have permission set metadata base URL')
         self._metadataBaseURL.set(_base_URL)
 
     # ================================================
