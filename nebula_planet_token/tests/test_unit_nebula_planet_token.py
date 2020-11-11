@@ -536,3 +536,13 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.score.list_token(11, 100)
 
         self.assertEqual(self.score.get_token_price(11), 100)
+
+    def test_purchase_token_throws_when_sent_amount_is_zero(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        with self.assertRaises(IconScoreException) as e:
+            token_price = 0
+            self.set_msg(self.test_account2, token_price)
+            self.score.purchase_token(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Sent ICX amount needs to be greater than 0")

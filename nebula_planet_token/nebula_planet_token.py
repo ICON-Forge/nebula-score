@@ -612,6 +612,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self._is_paused.get():
             revert("Contract is currently paused")
+        if not self.msg.value > 0:
+            revert(f'Sent ICX amount needs to be greater than 0')
         token_price = self.get_token_price(_token_id)
         if self.msg.value != token_price:
             revert(f'Sent ICX amount ({self.msg.value}) does not match token price ({token_price})')
