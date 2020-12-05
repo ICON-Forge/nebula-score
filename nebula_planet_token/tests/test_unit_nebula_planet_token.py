@@ -707,4 +707,38 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Auction needs to have status: unclaimed. Current status: active")
 
+    def test_cancel_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
 
+        self.assertEqual(self.score.total_listed_token_count(), 1)
+
+        self.score.cancel_auction(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_cancel_auction_throws_when_bid_has_been_made(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        self.set_msg(self.test_account2, 5000000000000000000)
+        self.score.place_bid(11)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account1)
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Bid has already been made. Auction cannot be cancelled.")
+
+    def test_cancel_auction_throws_when_caller_is_not_token_owner(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You do not own this NFT")

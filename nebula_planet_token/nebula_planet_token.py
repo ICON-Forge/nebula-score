@@ -759,11 +759,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._auction_item_current_bid(_token_id).remove()
         self._auction_item_highest_bidder(_token_id).remove()
 
-    # def setAuctionInfo(self, _token_id: int, _start_time: int, _end_time: int, _starting_price: int, ):
-    #     self._auction_item_start_time(_token_id).set(_start_time)
-    #     self._auction_item_end_time(_token_id).set(_end_time)
-    #     self._auction_item_start_price(_token_id).set(_starting_price)
-    #     self._auction_item_claimed(_token_id).set(False)
+        seller = self.ownerOf(_token_id)
+        self._delist_token(seller, _token_id)
 
     def get_auction_info(self, _token_id):
         if self._listed_token_prices[str(_token_id)] != -1:
@@ -818,6 +815,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Throws if auction has ended.
         Throws if bid amount is less than minimum bid (previous bid + minimum increment).
         """
+        if self._is_paused.get() and not self.msg.sender == self._minter.get():
+            revert("Contract is currently paused")
         if self._listed_token_prices[str(_token_id)] != -1:
             revert("Token is not on auction")
         # Check if auction is live
@@ -867,7 +866,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         # if not self._auction_item_current_bid(_token_id).get():
         #     revert('Starting price was not met. Auction item can not be claimed.')
         auction_status = self._auction_status(_token_id)
-        if self._auction_status(_token_id) != 'unclaimed':
+        if auction_status != 'unclaimed':
             revert(f'Auction needs to have status: unclaimed. Current status: {auction_status}')
 
         seller = self.ownerOf(_token_id)
@@ -887,28 +886,38 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Throws if auction does not exist. Throws if auction has not ended.
         Throws if auction item has already been claimed. Throws if auction bid price was not met.
         """
+        owner = self.ownerOf(_token_id)
+        if self.msg.sender != owner:
+            revert("You do not own this NFT")
         if self._listed_token_prices[str(_token_id)] != -1:
             revert("Token is not on auction")
         auction_status = self._auction_status(_token_id)
-        if self._auction_status(_token_id) != 'unsold':
+        if auction_status != 'unsold':
             revert(f'Auction needs to have status: unsold. Current status: {auction_status}')
-        # if self.now() < end_time:
-        #     revert('Auction has not ended yet')
-        # if self._auction_item_claimed(_token_id).get():  # TODO: This probably won't be possible...
-        #     revert('Auctioned item has already been claimed')
-        # if self._auction_item_current_bid(_token_id).get():
-        #     revert('Auction was')
-
-        # self._auction_item_claimed(_token_id).set(True) # todo : remove?
-        # seller = self.ownerOf(_token_id) # todo
-        # buyer = self._auction_item_highest_bidder(_token_id).get()
-        # last_bid = self._auction_item_current_bid(_token_id).get()
-
-        # self._transfer(seller, buyer, _token_id)
-        # self.icx.transfer(seller, last_bid)
 
         # TODO: Close auction
         # TODO: Create a record for auction?
+
+    @external
+    def cancel_auction(self, _token_id: int):
+        """
+        Method used for cancelling auctions that don't have a bid yet. Auction item is returned to the owner.
+        Throws if auction does not exist. Throws if auction has not ended.
+        """
+        owner = self.ownerOf(_token_id)
+        if self.msg.sender != owner:
+            revert("You do not own this NFT")
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+        if self._auction_status(_token_id) != 'active':
+            revert('Auction needs to be active to get cancelled.')
+        last_bid = self._auction_item_current_bid(_token_id).get()
+        if last_bid:
+            revert('Bid has already been made. Auction cannot be cancelled.')
+
+        # TODO: Create a record for auction?
+
+        self._finish_auction(_token_id)
 
 
     @eventlog(indexed=3)
