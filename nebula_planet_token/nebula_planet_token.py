@@ -4,6 +4,7 @@ TAG = 'NebulaPlanetToken'
 
 
 class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
+    # AFTER UPDATED CONTRACT!! TODO
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count against token owners
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
     _TOKEN_APPROVALS = 'token_approvals'  # Track token approved owner against token ID
@@ -20,6 +21,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _MAX_ITERATION_LOOP = 100
+    _MINIMUM_BID_INCREMENT = 5
+    _ICX_TO_LOOPS = 1000000000000000000
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
@@ -196,6 +199,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert("You don't have permission to transfer this NFT")
         if self._is_paused.get():
             revert("Contract is currently paused")
+        if self._listed_token_prices[str(_tokenId)] == -1:
+            revert("Token is currently on auction")
         self._transfer(self.msg.sender, _to, _tokenId)
 
     @external
@@ -212,6 +217,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert("You don't have permission to transfer this NFT")
         if self._is_paused.get() and not self.msg.sender == self._minter.get():
             revert("Contract is currently paused")
+        if self._listed_token_prices[str(_tokenId)] == -1:
+            revert("Token is currently on auction")
         self._transfer(_from, _to, _tokenId)
 
     def _transfer(self, _from: Address, _to: Address, _token_id: int):
@@ -682,6 +689,226 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             if self.get_listed_token_of_owner_by_index(_owner, x) == _token_id:
                 return x
         return 0
+
+    ### AUCTION
+
+    @external
+    def create_auction(self,  _token_id: int, _starting_price: int, _duration_in_hours: int):
+        """
+        TODO
+        """
+        owner = self.ownerOf(_token_id)
+        sender = self.msg.sender
+        if self._is_restricted_sale.get() and not sender == self._minter.get():
+            revert("Listing tokens is currently disabled")
+        if self._is_paused.get() and not sender == self._minter.get():
+            revert("Contract is currently paused")
+        if sender != owner:
+            revert("You do not own this NFT")
+        if self._listed_token_prices[str(_token_id)] == -1:
+            revert("Token is already auctioned")
+        if self._listed_token_prices[str(_token_id)] != 0:
+            revert("Token is already listed")
+        if _starting_price < 0:
+            revert("Price can not be negative")
+        if _starting_price == 0:
+            revert("Price can not be zero")
+
+        self._increment_listed_token_count()
+        self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
+
+        self._listed_token_prices[str(_token_id)] = -1
+
+        self._owner_listed_token_count[sender] += 1
+        self._set_owner_listed_token_index(sender, self._owner_listed_token_count[sender], _token_id)
+
+        # auction
+        start_time = self.now()
+        end_time = start_time + _duration_in_hours * 3600 * 1000 * 1000
+
+        self._auction_item_start_time(_token_id).set(start_time)
+        self._auction_item_end_time(_token_id).set(end_time)
+        self._auction_item_start_price(_token_id).set(_starting_price)
+        # self._auction_item_claimed(_token_id).set(False) #TODO double check to make sure we don't need a flag for finished auction
+
+        # self.ListToken(owner, _token_id, _price)
+
+
+    def _auction_item_start_time(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_START_TIME', self._db, value_type=int)
+
+    def _auction_item_end_time(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_END_TIME', self._db, value_type=int)
+
+    def _auction_item_start_price(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_START_PRICE', self._db, value_type=int)
+
+    def _auction_item_current_bid(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_CURRENT_BID', self._db, value_type=int)
+
+    def _auction_item_highest_bidder(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_HIGHEST_BIDDER', self._db, value_type=Address)
+
+    # def _auction_item_claimed(self, _token_id: int)-> VarDB: # TODO: should this be auction finished?
+    #     return VarDB(f'AUCTION_{str(_token_id)}_CLAIMED', self._db, value_type=bool)
+
+    def _finish_auction(self, _token_id):
+        self._auction_item_start_time(_token_id).remove()
+        self._auction_item_end_time(_token_id).remove()
+        self._auction_item_start_price(_token_id).remove()
+        self._auction_item_current_bid(_token_id).remove()
+        self._auction_item_highest_bidder(_token_id).remove()
+
+    # def setAuctionInfo(self, _token_id: int, _start_time: int, _end_time: int, _starting_price: int, ):
+    #     self._auction_item_start_time(_token_id).set(_start_time)
+    #     self._auction_item_end_time(_token_id).set(_end_time)
+    #     self._auction_item_start_price(_token_id).set(_starting_price)
+    #     self._auction_item_claimed(_token_id).set(False)
+
+    def get_auction_info(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+        end_time = self._auction_item_end_time(_token_id).get()
+        starting_price = self._auction_item_start_price(_token_id).get()
+        current_bid = self._auction_item_current_bid(_token_id).get()
+
+        bid_increment: int
+        if current_bid:
+            bid_increment = current_bid * self._MINIMUM_BID_INCREMENT / 100
+        else:
+            bid_increment = starting_price * self._MINIMUM_BID_INCREMENT / 100
+
+        auction_item = {
+            # "status": self._auction_status(_token_id), TODO later
+            "start_time": self._auction_item_start_time(_token_id).get(),
+            "end_time": end_time,
+            "starting_price": starting_price,
+            "current_bid": current_bid,
+            "minimum_bid_increment": bid_increment,
+            "highest_bidder": self._auction_item_highest_bidder(_token_id).get(),
+        }
+        return auction_item
+
+    def _auction_status(self, _token_id) -> str:
+        """
+        Returns auction status as string value:
+        'active' for ongoing auctions.
+        'unsold' for finished auctions where no bid was placed. User can return item to them to finish the auction.
+        'unclaimed' for finished auctions where a bid was placed, but auctioned item is not yet claimed
+        'claimed' for finished auctions where a bid was placed and winner has claimed the auctioned item
+        """
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+
+        end_time = self._auction_item_end_time(_token_id).get()
+        current_bid = self._auction_item_current_bid(_token_id).get()
+        if self.now() < end_time:
+            return 'active'
+        else:
+            if current_bid:
+                return 'unclaimed'
+            else:
+                return 'unsold'
+
+    @external
+    @payable
+    def place_bid(self, _token_id: int):
+        """
+        Used for bidding on auction. Bid amount has to exceed previous bid + minimum bid increment.
+        Throws if auction has ended.
+        Throws if bid amount is less than minimum bid (previous bid + minimum increment).
+        """
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+        # Check if auction is live
+        end_time = self._auction_item_end_time(_token_id).get()
+        if self.now() > end_time:
+            revert('Can not place a bid. The auction has already ended.')
+
+        # Check if amount is equal to or greater than current_bid + minimum_bid_increment
+        starting_price = self._auction_item_start_price(_token_id).get()
+        last_bid = self._auction_item_current_bid(_token_id).get()
+
+        minimum_bid = starting_price
+        if last_bid:
+            minimum_bid = last_bid + last_bid * self._MINIMUM_BID_INCREMENT / 100
+
+        if self.msg.value < minimum_bid:
+            revert(
+                f'Your bid {str(self.msg.value / self._ICX_TO_LOOPS)} is lower than minimum bid amount {str(minimum_bid / self._ICX_TO_LOOPS)}')
+
+        last_bidder = self._auction_item_highest_bidder(_token_id).get()
+
+        self._auction_item_highest_bidder(_token_id).set(self.msg.sender)
+        self._auction_item_current_bid(_token_id).set(self.msg.value)
+
+        # If bid existed, return last bid to previous high bidder
+        if last_bidder:
+            self.icx.transfer(last_bidder, last_bid)
+
+        # self.PlaceBid(self.msg.sender, _token_id, self.msg.value)
+
+        # TODO: pikenev lõpp
+
+    @external
+    def claim_auctioned_item(self, _token_id: int):
+        """
+        Method used for sending auctioned item to the winner of the auction and ICX to seller.
+        Throws if auction does not exist. Throws if auction has not ended.
+        Throws if auction item has already been claimed. Throws if auction bid price was not met.
+        """
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+        # end_time = self._auction_item_end_time(_token_id).get()
+        # if self.now() < end_time:
+        #     revert('Auction has not ended yet')
+        # if self._auction_item_claimed(_token_id).get(): # TODO: This probably won't be possible...
+        #     revert('Auctioned item has already been claimed')
+        # if not self._auction_item_current_bid(_token_id).get():
+        #     revert('Starting price was not met. Auction item can not be claimed.')
+        auction_status = self._auction_status(_token_id)
+        if self._auction_status(_token_id) != 'unclaimed':
+            revert(f'Auction needs to have status: unclaimed. Current status: {auction_status}')
+
+        seller = self.ownerOf(_token_id)
+        buyer = self._auction_item_highest_bidder(_token_id).get()
+        last_bid = self._auction_item_current_bid(_token_id).get()
+
+        self._transfer(seller, buyer, _token_id)
+        self.icx.transfer(seller, last_bid)
+
+        # TODO: Close auction
+        # TODO: Create a record for auction?
+
+    @external
+    def return_unsold_item(self, _token_id: int):
+        """
+        Method used for sending unsold auctioned item back to owner.
+        Throws if auction does not exist. Throws if auction has not ended.
+        Throws if auction item has already been claimed. Throws if auction bid price was not met.
+        """
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+        auction_status = self._auction_status(_token_id)
+        if self._auction_status(_token_id) != 'unsold':
+            revert(f'Auction needs to have status: unsold. Current status: {auction_status}')
+        # if self.now() < end_time:
+        #     revert('Auction has not ended yet')
+        # if self._auction_item_claimed(_token_id).get():  # TODO: This probably won't be possible...
+        #     revert('Auctioned item has already been claimed')
+        # if self._auction_item_current_bid(_token_id).get():
+        #     revert('Auction was')
+
+        # self._auction_item_claimed(_token_id).set(True) # todo : remove?
+        # seller = self.ownerOf(_token_id) # todo
+        # buyer = self._auction_item_highest_bidder(_token_id).get()
+        # last_bid = self._auction_item_current_bid(_token_id).get()
+
+        # self._transfer(seller, buyer, _token_id)
+        # self.icx.transfer(seller, last_bid)
+
+        # TODO: Close auction
+        # TODO: Create a record for auction?
 
 
     @eventlog(indexed=3)
