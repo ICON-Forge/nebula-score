@@ -4,7 +4,6 @@ TAG = 'NebulaPlanetToken'
 
 
 class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
-    # AFTER UPDATED CONTRACT!! TODO
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count against token owners
     _TOKEN_OWNER = 'token_owner'  # Track token owner against token ID
     _TOKEN_APPROVALS = 'token_approvals'  # Track token approved owner against token ID
@@ -20,6 +19,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
     _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
+    _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
+
     _MAX_ITERATION_LOOP = 100
     _MINIMUM_BID_INCREMENT = 5
     _ICX_TO_LOOPS = 1000000000000000000
@@ -42,6 +43,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_paused = VarDB(self._IS_PAUSED, db, value_type=bool)
         self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
+        self._sale_record_count = VarDB(self._SALE_RECORD_COUNT, db, value_type=int)
+
 
         self._db = db
 
@@ -638,6 +641,14 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._transfer(seller, buyer, _token_id)
         self.icx.transfer(seller, token_price)
 
+        self._create_sale_record(_token_id=_token_id,
+                                 _type='sale_success',
+                                 _seller=seller,
+                                 _buyer=buyer,
+                                 _starting_price=token_price,
+                                 _final_price=token_price,
+                                 _end_time=self.now())
+
         self.PurchaseToken(seller, buyer, _token_id)
 
     def _listed_token(self, _token_id: int) -> VarDB:
@@ -737,7 +748,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         self._auction_item_start_time(_token_id).set(start_time)
         self._auction_item_end_time(_token_id).set(end_time)
-        self._auction_item_start_price(_token_id).set(_starting_price)
+        self._auction_item_starting_price(_token_id).set(_starting_price)
         # self._auction_item_claimed(_token_id).set(False) #TODO double check to make sure we don't need a flag for finished auction
 
         # self.ListToken(owner, _token_id, _price)
@@ -749,8 +760,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _auction_item_end_time(self, _token_id: int) -> VarDB:
         return VarDB(f'AUCTION_{str(_token_id)}_END_TIME', self._db, value_type=int)
 
-    def _auction_item_start_price(self, _token_id: int) -> VarDB:
-        return VarDB(f'AUCTION_{str(_token_id)}_START_PRICE', self._db, value_type=int)
+    def _auction_item_starting_price(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_STARTING_PRICE', self._db, value_type=int)
 
     def _auction_item_current_bid(self, _token_id: int) -> VarDB:
         return VarDB(f'AUCTION_{str(_token_id)}_CURRENT_BID', self._db, value_type=int)
@@ -764,18 +775,19 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _finish_auction(self, _token_id):
         self._auction_item_start_time(_token_id).remove()
         self._auction_item_end_time(_token_id).remove()
-        self._auction_item_start_price(_token_id).remove()
+        self._auction_item_starting_price(_token_id).remove()
         self._auction_item_current_bid(_token_id).remove()
         self._auction_item_highest_bidder(_token_id).remove()
 
         seller = self.ownerOf(_token_id)
         self._delist_token(seller, _token_id)
 
-    def get_auction_info(self, _token_id):
+    @external
+    def get_auction_info(self, _token_id: int):
         if self._listed_token_prices[str(_token_id)] != -1:
             revert("Token is not on auction")
         end_time = self._auction_item_end_time(_token_id).get()
-        starting_price = self._auction_item_start_price(_token_id).get()
+        starting_price = self._auction_item_starting_price(_token_id).get()
         current_bid = self._auction_item_current_bid(_token_id).get()
 
         bid_increment: int
@@ -833,7 +845,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert('Can not place a bid. The auction has already ended.')
 
         # Check if amount is equal to or greater than current_bid + minimum_bid_increment
-        starting_price = self._auction_item_start_price(_token_id).get()
+        starting_price = self._auction_item_starting_price(_token_id).get()
         last_bid = self._auction_item_current_bid(_token_id).get()
 
         minimum_bid = starting_price
@@ -870,6 +882,12 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self._listed_token_prices[str(_token_id)] != -1:
             revert("Token is not on auction")
+
+        seller = self.ownerOf(_token_id)
+        buyer = self._auction_item_highest_bidder(_token_id).get()
+
+        if self.msg.sender != seller or self.msg.sender != seller:
+            revert("You do not own this NFT")
         # end_time = self._auction_item_end_time(_token_id).get()
         # if self.now() < end_time:
         #     revert('Auction has not ended yet')
@@ -881,15 +899,22 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if auction_status != 'unclaimed':
             revert(f'Auction needs to have status: unclaimed. Current status: {auction_status}')
 
-        seller = self.ownerOf(_token_id)
-        buyer = self._auction_item_highest_bidder(_token_id).get()
+
         last_bid = self._auction_item_current_bid(_token_id).get()
 
         self._transfer(seller, buyer, _token_id)
         self.icx.transfer(seller, last_bid)
 
-
-        # TODO: Create a record for auction?
+        # Create a record for auction
+        auction = self.get_auction_info(_token_id)
+        self._create_sale_record(_token_id=_token_id,
+                                 _type='auction_unsold',
+                                 _seller=seller,
+                                 _buyer=buyer,
+                                 _starting_price=auction['starting_price'],
+                                 _final_price=last_bid,
+                                 _start_time=auction['start_time'],
+                                 _end_time=auction['end_time'])
         self._finish_auction(_token_id)
 
     @external
@@ -909,7 +934,14 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert(f'Auction needs to have status: unsold. Current status: {auction_status}')
 
 
-        # TODO: Create a record for auction?
+        # Create a record for auction
+        auction = self.get_auction_info(_token_id)
+        self._create_sale_record(_token_id=_token_id,
+                                 _type='auction_unsold',
+                                 _seller=owner,
+                                 _starting_price=auction['starting_price'],
+                                 _start_time=auction['start_time'],
+                                 _end_time=auction['end_time'])
         self._finish_auction(_token_id)
 
     @external
@@ -929,10 +961,90 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if last_bid:
             revert('Bid has already been made. Auction cannot be cancelled.')
 
-        # TODO: Create a record for auction?
-
+        # Create a record for auction
+        auction = self.get_auction_info(_token_id)
+        self._create_sale_record(_token_id = _token_id,
+                                 _type = 'auction_cancelled',
+                                 _seller = owner,
+                                 _starting_price = auction['starting_price'],
+                                 _start_time = auction['start_time'],
+                                 _end_time = self.now())
         self._finish_auction(_token_id)
 
+    # ================================================
+    #  Sale records
+    # ================================================
+
+    def _record_token_id(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_TOKEN_ID', self._db, value_type=int)
+
+    def _record_type(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_TYPE', self._db, value_type=str)
+
+    def _record_seller(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_SELLER', self._db, value_type=Address)
+
+    def _record_buyer(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_BUYER', self._db, value_type=Address)
+
+    def _record_starting_price(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_STARTING_PRICE', self._db, value_type=int)
+
+    def _record_final_price(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_FINAL_PRICE', self._db, value_type=int)
+
+    def _record_start_time(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_START_TIME', self._db, value_type=int)
+
+    def _record_end_time(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_END_TIME', self._db, value_type=int)
+
+    def _records_count(self) -> int:
+        return self._sale_record_count.get()
+
+    def _create_sale_record(self,
+                            _token_id: int,
+                            _type: str,
+                            _seller: Address,
+                            _end_time: int,
+                            _buyer: Address = None,
+                            _starting_price: int = None,
+                            _final_price: int = None,
+                            _start_time: int = None
+                            ):
+        record_id = self._records_count() + 1
+        self._sale_record_count.set(record_id)
+
+        self._record_token_id(record_id).set(_token_id)
+        self._record_type(record_id).set(_type)
+        self._record_seller(record_id).set(_seller)
+        if _buyer:
+            self._record_buyer(record_id).set(_buyer)
+        if _starting_price:
+            self._record_starting_price(record_id).set(_starting_price)
+        if _final_price:
+            self._record_final_price(record_id).set(_final_price)
+        if _start_time:
+            self._record_start_time(record_id).set(_start_time)
+        if _end_time:
+            self._record_end_time(record_id).set(_end_time)
+
+    @external(readonly=True)
+    def get_sale_record(self, _record_id: int) -> dict:
+        if _record_id < self._sale_record_count.get():
+            revert('Sale record does not exist')
+        record = {
+            "record_id": _record_id,
+            "token_id": self._record_token_id(_record_id).get(),
+            "type": self._record_type(_record_id).get(),
+            "seller": self._record_seller(_record_id).get(),
+            "buyer": self._record_buyer(_record_id).get(),
+            "starting_price": self._record_starting_price(_record_id).get(),
+            "final_price": self._record_final_price(_record_id).get(),
+            "start_time": self._record_start_time(_record_id).get(),
+            "end_time": self._record_end_time(_record_id).get(),
+        }
+        return record
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):

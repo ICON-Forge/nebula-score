@@ -791,3 +791,44 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(result['current_bid'], token_price)
         self.assertEqual(result['highest_bidder'], self.test_account2)
+
+
+    def test_create_sale_record_after_cancelling_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
+        self.score.cancel_auction(11)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['record_id'], 1)
+        self.assertEqual(record['token_id'], 11)
+        self.assertEqual(record['type'], 'auction_cancelled')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], self.score.now())
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 300000000000000000)
+        self.assertEqual(record['final_price'], 0)
+        self.assertEqual(record['buyer'], None)
+
+    def test_create_sale_record_after_purchasing_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 5000000000000000000
+        self.score.list_token(11, token_price)
+
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['token_id'], 11)
+        self.assertEqual(record['type'], 'sale_success')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], 0)
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 5000000000000000000)
+        self.assertEqual(record['final_price'], 5000000000000000000)
+        self.assertEqual(record['buyer'], self.test_account2)
