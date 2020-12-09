@@ -358,6 +358,17 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Token is not listed")
 
+    def test_throws_when_delisting_an_auctioned_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.delist_token(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is on auction and can't be delisted")
+
+
     def test_delists_token_and_keeps_correct_indexes(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "1.json")
@@ -590,6 +601,16 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Token is already auctioned")
 
+    def test_create_auction_throws_when_duration_is_too_long(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "11")
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.create_auction(11, 300000000000000000, 337) # Two weeks + 1 hour
+
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Auction duration can not be longer than two weeks")
+
     def test_get_auction_info(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "1.json")
@@ -742,3 +763,31 @@ class TestNebulaPlanetToken(ScoreTestCase):
             self.score.cancel_auction(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "You do not own this NFT")
+
+    def test_cancel_auction_throws_when_token_is_listed(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.list_token(11, 5000000000000000000)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not on auction")
+
+    def test_place_bid_extend_time(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 5000000000000000000
+        self.score.create_auction(11, token_price, 1)
+
+        result = self.score.get_auction_info(11)
+        print(result['end_time'])
+
+        self.set_msg(self.test_account2, token_price)
+        self.score.place_bid(11)
+
+        result = self.score.get_auction_info(11)
+        print(result['end_time'])
+
+        self.assertEqual(result['current_bid'], token_price)
+        self.assertEqual(result['highest_bidder'], self.test_account2)

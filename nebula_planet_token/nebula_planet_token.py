@@ -480,6 +480,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if _price == 0:
             revert("Price can not be zero")
 
+        if self._listed_token_prices[str(_token_id)] == -1:
+            revert("Token is already auctioned")
+        if self._listed_token_prices[str(_token_id)] != 0:
+            revert("Token is already listed")
+
         self._increment_listed_token_count()
         self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
 
@@ -547,6 +552,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert("You do not own this NFT")
         if not self.get_token_price(_token_id):
             revert("Token is not listed")
+        if self._listed_token_prices[str(_token_id)] == -1:
+            revert("Token is on auction and can't be delisted")
 
         self._delist_token(owner, _token_id)
 
@@ -713,6 +720,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             revert("Price can not be negative")
         if _starting_price == 0:
             revert("Price can not be zero")
+        if _duration_in_hours > 336:
+            revert("Auction duration can not be longer than two weeks")
 
         self._increment_listed_token_count()
         self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
@@ -792,7 +801,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         'active' for ongoing auctions.
         'unsold' for finished auctions where no bid was placed. User can return item to them to finish the auction.
         'unclaimed' for finished auctions where a bid was placed, but auctioned item is not yet claimed
-        'claimed' for finished auctions where a bid was placed and winner has claimed the auctioned item
         """
         if self._listed_token_prices[str(_token_id)] != -1:
             revert("Token is not on auction")
@@ -847,7 +855,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         # self.PlaceBid(self.msg.sender, _token_id, self.msg.value)
 
-        # TODO: pikenev lõpp
+        # When a last minute bid is place, the auction end time will be extended by one minute.
+        if self.now() > end_time - 1000 * 1000 * 60:
+            self._auction_item_end_time(_token_id).set(end_time + 1000 * 1000 * 120)
+
+
 
     @external
     def claim_auctioned_item(self, _token_id: int):
@@ -876,8 +888,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._transfer(seller, buyer, _token_id)
         self.icx.transfer(seller, last_bid)
 
-        # TODO: Close auction
+
         # TODO: Create a record for auction?
+        self._finish_auction(_token_id)
 
     @external
     def return_unsold_item(self, _token_id: int):
@@ -895,8 +908,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if auction_status != 'unsold':
             revert(f'Auction needs to have status: unsold. Current status: {auction_status}')
 
-        # TODO: Close auction
+
         # TODO: Create a record for auction?
+        self._finish_auction(_token_id)
 
     @external
     def cancel_auction(self, _token_id: int):
