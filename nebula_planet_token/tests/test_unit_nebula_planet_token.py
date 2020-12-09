@@ -832,3 +832,19 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(record['starting_price'], 5000000000000000000)
         self.assertEqual(record['final_price'], 5000000000000000000)
         self.assertEqual(record['buyer'], self.test_account2)
+
+    def test_deduct_seller_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+
+        price = 100
+        price_with_fee_deducted = self.score._deduct_seller_fee(price)
+
+        self.assertEqual(price_with_fee_deducted, 97.5)
+
+    def test_gets_seller_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+
+        self.assertEqual(self.score.seller_fee(), 2500)
+

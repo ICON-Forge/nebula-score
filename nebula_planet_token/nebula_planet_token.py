@@ -20,6 +20,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
+    _SELLER_FEE = 'seller_fee' # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
 
     _MAX_ITERATION_LOOP = 100
     _MINIMUM_BID_INCREMENT = 5
@@ -44,7 +45,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
         self._sale_record_count = VarDB(self._SALE_RECORD_COUNT, db, value_type=int)
-
+        self._seller_fee = VarDB(self._SELLER_FEE, db, value_type=int)
 
         self._db = db
 
@@ -56,6 +57,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_paused.set(False)
         self._is_restricted_sale.set(False)
         self._metadataBaseURL.set('')
+        self._seller_fee.set(0) # equals 2.5%
 
     def on_update(self) -> None:
         super().on_update()
@@ -326,6 +328,16 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self._minter.get() != self.msg.sender:
             revert('You do not have permission set metadata base URL')
         self._metadataBaseURL.set(_base_URL)
+
+    @external
+    def set_seller_fee(self, _new_fee: int):
+        if self._director.get() != self.msg.sender:
+            revert('You do not have permission set seller fee')
+        self._seller_fee.set(_new_fee)
+
+    @external(readonly=True)
+    def seller_fee(self) -> int:
+        return self._seller_fee.get()
 
     # ================================================
     #  Enumerable extension
@@ -639,7 +651,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         buyer = self.msg.sender
         self._delist_token(seller, _token_id)
         self._transfer(seller, buyer, _token_id)
-        self.icx.transfer(seller, token_price)
+
+        sale_price_excluding_fee = self._deduct_seller_fee(token_price)
+
+        self.icx.transfer(seller, sale_price_excluding_fee)
 
         self._create_sale_record(_token_id=_token_id,
                                  _type='sale_success',
@@ -650,6 +665,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                                  _end_time=self.now())
 
         self.PurchaseToken(seller, buyer, _token_id)
+
+    def _deduct_seller_fee(self, price: int):
+        return price - (price * self._seller_fee.get() / 100000)
 
     def _listed_token(self, _token_id: int) -> VarDB:
         return VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int)
