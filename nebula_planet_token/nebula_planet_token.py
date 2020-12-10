@@ -892,7 +892,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
 
     @external
-    def claim_auctioned_item(self, _token_id: int):
+    def finalize_auction(self, _token_id: int):
         """
         Method used for sending auctioned item to the winner of the auction and ICX to seller.
         Throws if auction does not exist. Throws if auction has not ended.
@@ -921,7 +921,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         last_bid = self._auction_item_current_bid(_token_id).get()
 
         self._transfer(seller, buyer, _token_id)
-        self.icx.transfer(seller, last_bid)
+        sale_price_excluding_fee = self._deduct_seller_fee(last_bid)
+        self.icx.transfer(seller, sale_price_excluding_fee)
 
         # Create a record for auction
         auction = self.get_auction_info(_token_id)

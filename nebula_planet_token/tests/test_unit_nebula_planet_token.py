@@ -718,13 +718,13 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Auction needs to have status: unsold. Current status: active")
 
-    def test_claim_auctioned_item_throws_when_status_is_active(self):
+    def test_finalize_auction_throws_when_status_is_active(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "1.json")
         self.score.create_auction(11, 5000000000000000000, 24)
 
         with self.assertRaises(IconScoreException) as e:
-            self.score.claim_auctioned_item(11)
+            self.score.finalize_auction(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Auction needs to have status: unclaimed. Current status: active")
 
