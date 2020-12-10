@@ -580,7 +580,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def delist_token(self, _token_id: int):
         """ Removes token from sale. Throws if token is not listed. Throws if sender does not own the token. """
         owner = self.ownerOf(_token_id)
-        self._check_that_sender_is_nft_owner(owner)
+        if self.msg.sender != owner and self.msg.sender != self._director.get(): # Token can also be delisted by Director, although this should be done rarely and with good reason.
+            revert("You do not own this NFT")
         self._check_that_token_is_not_auctioned(_token_id)
 
         if not self.get_token_price(_token_id):
@@ -957,7 +958,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self._auction_status(_token_id) != 'active':
             revert('Auction needs to be active to get cancelled.')
         last_bid = self._auction_item_current_bid(_token_id).get()
-        if last_bid:
+        if last_bid and self.msg.sender != self._director.get(): # Auction can also be cancelled by Director.
             revert('Bid has already been made. Auction cannot be cancelled.')
 
         # Create a record for cancelled auction

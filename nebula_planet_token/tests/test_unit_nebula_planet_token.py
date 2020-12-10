@@ -350,6 +350,26 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.get_listed_token_by_index(3), 13)
         self.assertEqual(self.score.total_listed_token_count(), 3)
 
+    def test_throws_when_trying_to_delist_another_users_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.delist_token(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You do not own this NFT")
+
+    def test_director_can_delist_other_users_tokens(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
+        self.score.list_token(11, 100000000000000000)
+
+        self.set_msg(self.test_account1)
+        self.score.delist_token(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
     def test_throws_when_delisting_an_unlisted_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "1.json")
@@ -741,17 +761,31 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_cancel_auction_throws_when_bid_has_been_made(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
         self.score.create_auction(11, 5000000000000000000, 24)
+
+        self.set_msg(self.test_account1, 5000000000000000000)
+        self.score.place_bid(11)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Bid has already been made. Auction cannot be cancelled.")
+
+    def test_auction_with_bid_can_be_cancelled_by_director(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
 
         self.set_msg(self.test_account2, 5000000000000000000)
         self.score.place_bid(11)
 
-        with self.assertRaises(IconScoreException) as e:
-            self.set_msg(self.test_account1)
-            self.score.cancel_auction(11)
-        self.assertEqual(e.exception.code, 32)
-        self.assertEqual(e.exception.message, "Bid has already been made. Auction cannot be cancelled.")
+        self.set_msg(self.test_account1)
+        self.score.cancel_auction(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
 
     def test_cancel_auction_throws_when_caller_is_not_token_owner(self):
         self.set_msg(self.test_account1)
