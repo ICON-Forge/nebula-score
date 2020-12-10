@@ -366,7 +366,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         with self.assertRaises(IconScoreException) as e:
             self.score.delist_token(11)
         self.assertEqual(e.exception.code, 32)
-        self.assertEqual(e.exception.message, "Token is on auction and can't be delisted")
+        self.assertEqual(e.exception.message, "Token is currently on auction")
 
 
     def test_delists_token_and_keeps_correct_indexes(self):
@@ -599,7 +599,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
             self.score.create_auction(11, 300000000000000000, 24)
 
         self.assertEqual(e.exception.code, 32)
-        self.assertEqual(e.exception.message, "Token is already auctioned")
+        self.assertEqual(e.exception.message, "Token is currently on auction")
 
     def test_create_auction_throws_when_duration_is_too_long(self):
         self.set_msg(self.test_account1)

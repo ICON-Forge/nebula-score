@@ -62,6 +62,14 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def on_update(self) -> None:
         super().on_update()
 
+    @external(readonly=True)
+    def name(self) -> str:
+        return "NebulaPlanetToken"
+
+    @external(readonly=True)
+    def symbol(self) -> str:
+        return "NPT"
+
     @payable
     def fallback(self):
         """
@@ -70,6 +78,14 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self._treasurer.get() != self.msg.sender:
             revert('You are not allowed to deposit to this contract')
+
+    def _check_that_sender_is_nft_owner(self, _owner: Address):
+        if self.msg.sender != _owner:
+            revert("You do not own this NFT")
+
+    def _check_that_contract_is_unpaused(self):
+        if self._is_paused.get() and not self.msg.sender == self._minter.get():
+            revert("Contract is currently paused")
 
     @external
     def withdraw(self, amount: int):
@@ -129,14 +145,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_restricted_sale.set(False)
 
     @external(readonly=True)
-    def name(self) -> str:
-        return "NebulaPlanetToken"
-
-    @external(readonly=True)
-    def symbol(self) -> str:
-        return "NPT"
-
-    @external(readonly=True)
     def balanceOf(self, _owner: Address) -> int:
         """
         Returns the number of NFTs owned by _owner.
@@ -186,8 +194,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         owner = self.ownerOf(_tokenId)
         if _to == owner:
             revert("Can't approve to yourself.")
-        if self.msg.sender != owner:
-            revert("You do not own this NFT")
+        self._check_that_sender_is_nft_owner(owner)
 
         self._token_approvals[_tokenId] = _to
         self.Approval(owner, _to, _tokenId)
@@ -202,10 +209,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self.ownerOf(_tokenId) != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._is_paused.get():
-            revert("Contract is currently paused")
-        if self._listed_token_prices[str(_tokenId)] == -1:
-            revert("Token is currently on auction")
+        self._check_that_contract_is_unpaused()
+        self._check_that_token_is_not_auctioned(_tokenId)
         self._transfer(self.msg.sender, _to, _tokenId)
 
     @external
@@ -220,10 +225,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self.ownerOf(_tokenId) != self.msg.sender and \
                 self._token_approvals[_tokenId] != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._is_paused.get() and not self.msg.sender == self._minter.get():
-            revert("Contract is currently paused")
-        if self._listed_token_prices[str(_tokenId)] == -1:
-            revert("Token is currently on auction")
+        self._check_that_contract_is_unpaused()
+
+        self._check_that_token_is_not_auctioned(_tokenId)
+
         self._transfer(_from, _to, _tokenId)
 
     def _transfer(self, _from: Address, _to: Address, _token_id: int):
@@ -476,6 +481,28 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     #  Exchange
     # ================================================
 
+    def _check_that_token_is_not_listed(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] != 0:
+            revert("Token is already listed")
+
+    def _check_that_token_is_not_auctioned(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] == -1:
+            revert("Token is currently on auction")
+
+    def _check_that_token_is_on_auction(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+
+    def _check_that_price_is_positive(self, _price):
+        if _price < 0:
+            revert("Price can not be negative")
+        if _price == 0:
+            revert("Price can not be zero")
+
+    def _check_that_sale_is_not_restricted(self):
+        if self._is_restricted_sale.get() and not self.msg.sender == self._minter.get():
+            revert("Listing tokens is currently disabled")
+
     @external
     def list_token(self, _token_id: int, _price: int):
         """
@@ -484,25 +511,15 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         owner = self.ownerOf(_token_id)
         sender = self.msg.sender
-        if self._is_restricted_sale.get() and not sender == self._minter.get():
-            revert("Listing tokens is currently disabled")
-        if self._is_paused.get() and not sender == self._minter.get():
-            revert("Contract is currently paused")
-        if sender != owner:
-            revert("You do not own this NFT")
-        if _price < 0:
-            revert("Price can not be negative")
-        if _price == 0:
-            revert("Price can not be zero")
-
-        if self._listed_token_prices[str(_token_id)] == -1:
-            revert("Token is already auctioned")
-        if self._listed_token_prices[str(_token_id)] != 0:
-            revert("Token is already listed")
+        self._check_that_sale_is_not_restricted()
+        self._check_that_contract_is_unpaused()
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_price_is_positive(_price)
+        self._check_that_token_is_not_auctioned(_token_id)
+        self._check_that_token_is_not_listed(_token_id)
 
         self._increment_listed_token_count()
         self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
-
         self._listed_token_prices[str(_token_id)] = _price
 
         self._owner_listed_token_count[sender] += 1
@@ -563,12 +580,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def delist_token(self, _token_id: int):
         """ Removes token from sale. Throws if token is not listed. Throws if sender does not own the token. """
         owner = self.ownerOf(_token_id)
-        if self.msg.sender != owner:
-            revert("You do not own this NFT")
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_token_is_not_auctioned(_token_id)
+
         if not self.get_token_price(_token_id):
             revert("Token is not listed")
-        if self._listed_token_prices[str(_token_id)] == -1:
-            revert("Token is on auction and can't be delisted")
 
         self._delist_token(owner, _token_id)
 
@@ -639,8 +655,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         otherwise throws an error. When a correct amount is sent, the NFT will be sent from seller to buyer, and SCORE
         will send token's price worth of ICX to seller (minus fee, if applicable).
         """
-        if self._is_paused.get():
-            revert("Contract is currently paused")
+        self._check_that_contract_is_unpaused()
+
         if not self.msg.value > 0:
             revert(f'Sent ICX amount needs to be greater than 0')
         token_price = self.get_token_price(_token_id)
@@ -730,47 +746,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     #  Auction
     # ================================================
 
-    @external
-    def create_auction(self,  _token_id: int, _starting_price: int, _duration_in_hours: int):
-        """
-        Creates an English auction for given _token_id. Maximum auction duration is 336 hours (2 weeks).
-        Throws if sale is restricted or contract is paused. Throws when token is already listed.
-        Throws when sender does not own the token. Throws when starting price is not positive.
-        """
-        owner = self.ownerOf(_token_id)
-        sender = self.msg.sender
-        if self._is_restricted_sale.get() and not sender == self._minter.get():
-            revert("Listing tokens is currently disabled")
-        if self._is_paused.get() and not sender == self._minter.get():
-            revert("Contract is currently paused")
-        if sender != owner:
-            revert("You do not own this NFT")
-        if self._listed_token_prices[str(_token_id)] == -1:
-            revert("Token is already auctioned")
-        if self._listed_token_prices[str(_token_id)] != 0:
-            revert("Token is already listed")
-        if _starting_price < 0:
-            revert("Price can not be negative")
-        if _starting_price == 0:
-            revert("Price can not be zero")
-        if _duration_in_hours > 336:
-            revert("Auction duration can not be longer than two weeks")
-
-        self._increment_listed_token_count()
-        self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
-
-        self._listed_token_prices[str(_token_id)] = -1
-
-        self._owner_listed_token_count[sender] += 1
-        self._set_owner_listed_token_index(sender, self._owner_listed_token_count[sender], _token_id)
-
-        start_time = self.now()
-        end_time = start_time + _duration_in_hours * 3600 * 1000 * 1000
-
-        self._auction_item_start_time(_token_id).set(start_time)
-        self._auction_item_end_time(_token_id).set(end_time)
-        self._auction_item_starting_price(_token_id).set(_starting_price)
-
     def _auction_item_start_time(self, _token_id: int) -> VarDB:
         return VarDB(f'AUCTION_{str(_token_id)}_START_TIME', self._db, value_type=int)
 
@@ -786,6 +761,38 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _auction_item_highest_bidder(self, _token_id: int) -> VarDB:
         return VarDB(f'AUCTION_{str(_token_id)}_HIGHEST_BIDDER', self._db, value_type=Address)
 
+    @external
+    def create_auction(self,  _token_id: int, _starting_price: int, _duration_in_hours: int):
+        """
+        Creates an English auction for given _token_id. Maximum auction duration is 336 hours (2 weeks).
+        Throws if sale is restricted or contract is paused. Throws when token is already listed.
+        Throws when sender does not own the token. Throws when starting price is not positive.
+        """
+        owner = self.ownerOf(_token_id)
+        sender = self.msg.sender
+        self._check_that_sale_is_not_restricted()
+        self._check_that_contract_is_unpaused()
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_token_is_not_auctioned(_token_id)
+        self._check_that_token_is_not_listed(_token_id)
+        self._check_that_price_is_positive(_starting_price)
+
+        if _duration_in_hours > 336:
+            revert("Auction duration can not be longer than two weeks")
+
+        self._increment_listed_token_count()
+        self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
+        self._listed_token_prices[str(_token_id)] = -1
+        self._owner_listed_token_count[sender] += 1
+        self._set_owner_listed_token_index(sender, self._owner_listed_token_count[sender], _token_id)
+
+        start_time = self.now()
+        end_time = start_time + _duration_in_hours * 3600 * 1000 * 1000
+
+        self._auction_item_start_time(_token_id).set(start_time)
+        self._auction_item_end_time(_token_id).set(end_time)
+        self._auction_item_starting_price(_token_id).set(_starting_price)
+
     def _finish_auction(self, _token_id):
         self._auction_item_start_time(_token_id).remove()
         self._auction_item_end_time(_token_id).remove()
@@ -798,8 +805,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     @external
     def get_auction_info(self, _token_id: int):
-        if self._listed_token_prices[str(_token_id)] != -1:
-            revert("Token is not on auction")
+        self._check_that_token_is_on_auction(_token_id)
         end_time = self._auction_item_end_time(_token_id).get()
         starting_price = self._auction_item_starting_price(_token_id).get()
         current_bid = self._auction_item_current_bid(_token_id).get()
@@ -828,8 +834,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         'unsold' for finished auctions where no bid was placed. User can return item to them to finish the auction.
         'unclaimed' for finished auctions where a bid was placed, but auctioned item is not yet claimed
         """
-        if self._listed_token_prices[str(_token_id)] != -1:
-            revert("Token is not on auction")
+        self._check_that_token_is_on_auction(_token_id)
 
         end_time = self._auction_item_end_time(_token_id).get()
         current_bid = self._auction_item_current_bid(_token_id).get()
@@ -849,10 +854,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Throws if auction has ended.
         Throws if bid amount is less than minimum bid (previous bid + minimum increment).
         """
-        if self._is_paused.get() and not self.msg.sender == self._minter.get():
-            revert("Contract is currently paused")
-        if self._listed_token_prices[str(_token_id)] != -1:
-            revert("Token is not on auction")
+        self._check_that_contract_is_unpaused()
+        self._check_that_token_is_on_auction(_token_id)
+
         # Check if auction is live
         end_time = self._auction_item_end_time(_token_id).get()
         if self.now() > end_time:
@@ -861,11 +865,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         # Check if amount is equal to or greater than current_bid + minimum_bid_increment
         starting_price = self._auction_item_starting_price(_token_id).get()
         last_bid = self._auction_item_current_bid(_token_id).get()
-
         minimum_bid = starting_price
         if last_bid:
             minimum_bid = last_bid + last_bid * self._MINIMUM_BID_INCREMENT / 100
-
         if self.msg.value < minimum_bid:
             revert(
                 f'Your bid {str(self.msg.value / self._ICX_TO_LOOPS)} is lower than minimum bid amount {str(minimum_bid / self._ICX_TO_LOOPS)}')
@@ -883,8 +885,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self.now() > end_time - 1000 * 1000 * 60:
             self._auction_item_end_time(_token_id).set(end_time + 1000 * 1000 * 120)
 
-
-
     @external
     def finalize_auction(self, _token_id: int):
         """
@@ -896,8 +896,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         seller = self.ownerOf(_token_id)
         buyer = self._auction_item_highest_bidder(_token_id).get()
         auction_status = self._auction_status(_token_id)
-        if self._listed_token_prices[str(_token_id)] != -1:
-            revert("Token is not on auction")
+        self._check_that_token_is_on_auction(_token_id)
         if auction_status != 'unclaimed':
             revert(f'Auction needs to have status: unclaimed. Current status: {auction_status}')
         if self.msg.sender != seller or self.msg.sender != buyer:
@@ -929,10 +928,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Throws if auction item has already been claimed. Throws if auction bid price was not met.
         """
         owner = self.ownerOf(_token_id)
-        if self.msg.sender != owner:
-            revert("You do not own this NFT")
-        if self._listed_token_prices[str(_token_id)] != -1:
-            revert("Token is not on auction")
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_token_is_on_auction(_token_id)
         auction_status = self._auction_status(_token_id)
         if auction_status != 'unsold':
             revert(f'Auction needs to have status: unsold. Current status: {auction_status}')
@@ -955,10 +952,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Throws if auction does not exist. Throws if auction has not ended.
         """
         owner = self.ownerOf(_token_id)
-        if self.msg.sender != owner:
-            revert("You do not own this NFT")
-        if self._listed_token_prices[str(_token_id)] != -1:
-            revert("Token is not on auction")
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_token_is_on_auction(_token_id)
         if self._auction_status(_token_id) != 'active':
             revert('Auction needs to be active to get cancelled.')
         last_bid = self._auction_item_current_bid(_token_id).get()
