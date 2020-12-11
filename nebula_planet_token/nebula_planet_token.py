@@ -70,15 +70,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def symbol(self) -> str:
         return "NPT"
 
-    @payable
-    def fallback(self):
-        """
-        Called when funds are sent to the contract.
-        Throws if sender is not the Treasurer.
-        """
-        if self._treasurer.get() != self.msg.sender:
-            revert('You are not allowed to deposit to this contract')
-
     def _check_that_sender_is_nft_owner(self, _owner: Address):
         if self.msg.sender != _owner:
             revert("You do not own this NFT")
