@@ -904,7 +904,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         # Create a record for successful auction
         auction = self.get_auction_info(_token_id)
         self._create_sale_record(_token_id=_token_id,
-                                 _type='auction_unsold',
+                                 _type='auction_success',
                                  _seller=seller,
                                  _buyer=buyer,
                                  _starting_price=auction['starting_price'],
