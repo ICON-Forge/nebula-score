@@ -70,6 +70,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def symbol(self) -> str:
         return "NPT"
 
+    @payable
+    def fallback(self):
+        self.DepositReceived(self.msg.sender)
+
     def _check_that_sender_is_nft_owner(self, _owner: Address):
         if self.msg.sender != _owner:
             revert("You do not own this NFT")
@@ -1072,4 +1076,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     @eventlog(indexed=2)
     def AssignRole(self, _role: str, _owner: Address):
+        pass
+
+    @eventlog(indexed=3)
+    def DepositReceived(self, _sender: Address):
         pass
