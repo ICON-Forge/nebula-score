@@ -671,8 +671,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         fee = self._calculate_seller_fee(token_price)
 
-        self.icx.transfer(seller, token_price - fee)
-        self.icx.transfer(self.address, fee)
+        self.icx.transfer(seller, int(token_price - fee))
+        self.icx.transfer(self.address, int(fee))
 
         self._create_sale_record(_token_id=_token_id,
                                  _type='sale_success',
@@ -684,7 +684,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         self.PurchaseToken(seller, buyer, _token_id)
 
-    def _calculate_seller_fee(self, price: int):
+    def _calculate_seller_fee(self, price: int) -> int:
         return price * self._seller_fee.get() / 100000
 
     def _listed_token(self, _token_id: int) -> VarDB:
@@ -908,7 +908,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         self._transfer(seller, buyer, _token_id)
         fee = self._calculate_seller_fee(last_bid)
-        self.icx.transfer(seller, last_bid - fee)
+        self.icx.transfer(seller, int(last_bid - fee))
 
         # Create a record for successful auction
         auction = self.get_auction_info(_token_id)
