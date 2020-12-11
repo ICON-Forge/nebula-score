@@ -901,10 +901,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         last_bid = self._auction_item_current_bid(_token_id).get()
 
-        self._transfer(seller, buyer, _token_id)
-        fee = self._calculate_seller_fee(last_bid)
-        self.icx.transfer(seller, int(last_bid - fee))
-
         # Create a record for successful auction
         auction = self.get_auction_info(_token_id)
         self._create_sale_record(_token_id=_token_id,
@@ -915,6 +911,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                                  _final_price=last_bid,
                                  _start_time=auction['start_time'],
                                  _end_time=auction['end_time'])
+
+        self._transfer(seller, buyer, _token_id)
+        fee = self._calculate_seller_fee(last_bid)
+        self.icx.transfer(seller, int(last_bid - fee))
+
         self._finish_auction(_token_id)
 
     @external
