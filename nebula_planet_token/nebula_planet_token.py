@@ -1035,7 +1035,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Method is used for getting historic records of sales and auctions.
         Includes successful fixed price sales and auctions (successful, cancelled, unsold)
         """
-        if _record_id < self._sale_record_count.get():
+        if _record_id > self._sale_record_count.get():
             revert('Sale record does not exist')
         record = {
             "record_id": _record_id,
@@ -1078,6 +1078,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def AssignRole(self, _role: str, _owner: Address):
         pass
 
-    @eventlog(indexed=3)
+    @eventlog(indexed=1)
     def DepositReceived(self, _sender: Address):
         pass
