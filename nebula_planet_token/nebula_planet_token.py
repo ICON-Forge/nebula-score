@@ -896,7 +896,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._check_that_token_is_on_auction(_token_id)
         if auction_status != 'unclaimed':
             revert(f'Auction needs to have status: unclaimed. Current status: {auction_status}')
-        if self.msg.sender != seller or self.msg.sender != buyer:
+        if not (self.msg.sender == seller or self.msg.sender == buyer):
             revert("Only seller or buyer can finalize the auction")
 
         last_bid = self._auction_item_current_bid(_token_id).get()

@@ -784,6 +784,20 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(self.score.total_listed_token_count(), 0)
 
+    # Test can only be used when uncommenting auction status check
+    # ---
+    # def test_finalize_auction(self):
+    #     self.set_msg(self.test_account1)
+    #     self.score.mint(self.test_account1, 11, "1.json")
+    #     self.score.create_auction(11, 300000000000000000, 24)
+    #
+    #     self.assertEqual(self.score.total_listed_token_count(), 1)
+    #     self.set_msg(self.test_account2, 5000000000000000000)
+    #     self.score.place_bid(11)
+    #     self.score.finalize_auction(11)
+    #
+    #     self.assertEqual(self.score.total_listed_token_count(), 0)
+
     def test_cancel_auction_throws_when_bid_has_been_made(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account2, 11, "1.json")
