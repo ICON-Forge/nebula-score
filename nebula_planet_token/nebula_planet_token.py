@@ -669,9 +669,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._delist_token(seller, _token_id)
         self._transfer(seller, buyer, _token_id)
 
-        sale_price_excluding_fee = self._deduct_seller_fee(token_price)
+        fee = self._calculate_seller_fee(token_price)
 
-        self.icx.transfer(seller, sale_price_excluding_fee)
+        self.icx.transfer(seller, token_price - fee)
+        self.icx.transfer(self.address, fee)
 
         self._create_sale_record(_token_id=_token_id,
                                  _type='sale_success',
@@ -683,8 +684,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
         self.PurchaseToken(seller, buyer, _token_id)
 
-    def _deduct_seller_fee(self, price: int):
-        return price - (price * self._seller_fee.get() / 100000)
+    def _calculate_seller_fee(self, price: int):
+        return price * self._seller_fee.get() / 100000
 
     def _listed_token(self, _token_id: int) -> VarDB:
         return VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int)
@@ -804,8 +805,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         seller = self.ownerOf(_token_id)
         self._delist_token(seller, _token_id)
 
-    @external
-    def get_auction_info(self, _token_id: int):
+    @external(readonly=True)
+    def get_auction_info(self, _token_id: int) -> dict:
         self._check_that_token_is_on_auction(_token_id)
         end_time = self._auction_item_end_time(_token_id).get()
         starting_price = self._auction_item_starting_price(_token_id).get()
@@ -818,7 +819,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             bid_increment = starting_price * self._MINIMUM_BID_INCREMENT / 100
 
         auction_item = {
-            # "status": self._auction_status(_token_id), TODO later
             "start_time": self._auction_item_start_time(_token_id).get(),
             "end_time": end_time,
             "starting_price": starting_price,
@@ -906,8 +906,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         last_bid = self._auction_item_current_bid(_token_id).get()
 
         self._transfer(seller, buyer, _token_id)
-        sale_price_excluding_fee = self._deduct_seller_fee(last_bid)
-        self.icx.transfer(seller, sale_price_excluding_fee)
+        fee = self._calculate_seller_fee(last_bid)
+        self.icx.transfer(seller, last_bid - fee)
 
         # Create a record for successful auction
         auction = self.get_auction_info(_token_id)
@@ -953,13 +953,17 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         Throws if auction does not exist. Throws if auction has not ended.
         """
         owner = self.ownerOf(_token_id)
-        self._check_that_sender_is_nft_owner(owner)
         self._check_that_token_is_on_auction(_token_id)
         if self._auction_status(_token_id) != 'active':
             revert('Auction needs to be active to get cancelled.')
-        last_bid = self._auction_item_current_bid(_token_id).get()
-        if last_bid and self.msg.sender != self._director.get(): # Auction can also be cancelled by Director.
-            revert('Bid has already been made. Auction cannot be cancelled.')
+        if self.msg.sender == self._director.get(): # Auction can also be cancelled by Director.
+            pass
+        else:
+            self._check_that_sender_is_nft_owner(owner)
+            last_bid = self._auction_item_current_bid(_token_id).get()
+
+            if last_bid and self.msg.sender:
+                revert('Bid has already been made. Auction cannot be cancelled.')
 
         # Create a record for cancelled auction
         auction = self.get_auction_info(_token_id)
@@ -1049,6 +1053,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             "end_time": self._record_end_time(_record_id).get(),
         }
         return record
+
+    @external(readonly=True)
+    def sale_record_count(self) -> int:
+        return self._sale_record_count.get()
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):

@@ -434,6 +434,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.set_msg(self.test_account2, token_price)
         self.score.purchase_token(11)
 
+        self.assertEqual(self.score.icx.get_balance(self.test_account1), 1000000000000000000000 + token_price)
         self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - token_price)
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
         self.assertEqual(self.score.balanceOf(self.test_account2), 1)
@@ -442,6 +443,30 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.get_token_price(11), 0)
 
         self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_purchase_token_with_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 100000000000000000000
+        self.score.list_token(11, token_price)
+        print(self.score.icx.get_balance(self.test_account1))
+        print(self.score.icx.get_balance(self.test_account2))
+        print(self.score.icx.get_balance(self.score.address))
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
+        print(self.score.icx.get_balance(self.test_account1))
+        print(self.score.icx.get_balance(self.test_account2))
+        print(self.score.icx.get_balance(self.score.address))
+
+        fee = self.score._calculate_seller_fee(token_price)
+        expected_buyer_balance = 1000000000000000000000 + token_price - fee
+        expected_score_balance = fee
+
+        self.assertEqual(self.score.icx.get_balance(self.test_account1), expected_buyer_balance)
+        self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - token_price)
+        self.assertEqual(self.score.icx.get_balance(self.score.address), expected_score_balance)
+
 
     def test_gets_number_of_listed_tokens_of_owner(self):
         self.set_msg(self.test_account1)
@@ -776,11 +801,23 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
     def test_auction_with_bid_can_be_cancelled_by_director(self):
         self.set_msg(self.test_account1)
-        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
         self.score.create_auction(11, 300000000000000000, 24)
 
         self.set_msg(self.test_account2, 5000000000000000000)
         self.score.place_bid(11)
+
+        self.set_msg(self.test_account1)
+        self.score.cancel_auction(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_auction_without_bid_can_be_cancelled_by_director(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
+        self.score.create_auction(11, 300000000000000000, 24)
 
         self.set_msg(self.test_account1)
         self.score.cancel_auction(11)
@@ -867,14 +904,14 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(record['final_price'], 5000000000000000000)
         self.assertEqual(record['buyer'], self.test_account2)
 
-    def test_deduct_seller_fee(self):
+    def test_calculate_seller_fee(self):
         self.set_msg(self.test_account1)
         self.score.set_seller_fee(2500)
 
         price = 100
-        price_with_fee_deducted = self.score._deduct_seller_fee(price)
+        fee = self.score._calculate_seller_fee(price)
 
-        self.assertEqual(price_with_fee_deducted, 97.5)
+        self.assertEqual(fee, 2.5)
 
     def test_gets_seller_fee(self):
         self.set_msg(self.test_account1)
