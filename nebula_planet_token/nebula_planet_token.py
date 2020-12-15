@@ -814,6 +814,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             bid_increment = starting_price * self._MINIMUM_BID_INCREMENT / 100
 
         auction_item = {
+            "token_id": _token_id,
             "status": self._auction_status(_token_id),
             "start_time": self._auction_item_start_time(_token_id).get(),
             "end_time": end_time,
