@@ -669,6 +669,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(result['highest_bidder'], None)
         self.assertEqual(result['starting_price'], 300000000000000000)
         self.assertEqual(result['end_time'], end_time)
+        self.assertEqual(result['seller'], self.test_account1)
 
     def test_get_auction_info_throws_when_no_listing(self):
         self.set_msg(self.test_account1)

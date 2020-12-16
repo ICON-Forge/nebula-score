@@ -758,6 +758,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _auction_item_highest_bidder(self, _token_id: int) -> VarDB:
         return VarDB(f'AUCTION_{str(_token_id)}_HIGHEST_BIDDER', self._db, value_type=Address)
 
+    def _auction_item_seller(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_SELLER', self._db, value_type=Address)
+
     @external
     def create_auction(self,  _token_id: int, _starting_price: int, _duration_in_hours: int):
         """
@@ -789,6 +792,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._auction_item_start_time(_token_id).set(start_time)
         self._auction_item_end_time(_token_id).set(end_time)
         self._auction_item_starting_price(_token_id).set(_starting_price)
+        self._auction_item_seller(_token_id).set(owner)
 
     def _finish_auction(self, _token_id):
         self._auction_item_start_time(_token_id).remove()
@@ -796,6 +800,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._auction_item_starting_price(_token_id).remove()
         self._auction_item_current_bid(_token_id).remove()
         self._auction_item_highest_bidder(_token_id).remove()
+        self._auction_item_seller(_token_id).remove()
 
         seller = self.ownerOf(_token_id)
         self._delist_token(seller, _token_id)
@@ -822,6 +827,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             "current_bid": current_bid,
             "minimum_bid_increment": bid_increment,
             "highest_bidder": self._auction_item_highest_bidder(_token_id).get(),
+            "seller": self._auction_item_seller(_token_id).get()
         }
         return auction_item
 
