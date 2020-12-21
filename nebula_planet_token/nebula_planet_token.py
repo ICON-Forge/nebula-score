@@ -802,9 +802,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._auction_item_highest_bidder(_token_id).remove()
         self._auction_item_seller(_token_id).remove()
 
-        seller = self.ownerOf(_token_id)
-        self._delist_token(seller, _token_id)
-
     @external(readonly=True)
     def get_auction_info(self, _token_id: int) -> dict:
         self._check_that_token_is_on_auction(_token_id)
@@ -919,11 +916,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                                  _start_time=auction['start_time'],
                                  _end_time=auction['end_time'])
 
+        self._finish_auction(_token_id)
+
         self._transfer(seller, buyer, _token_id)
         fee = self._calculate_seller_fee(last_bid)
         self.icx.transfer(seller, int(last_bid - fee))
-
-        self._finish_auction(_token_id)
 
     @external
     def return_unsold_item(self, _token_id: int):
@@ -948,6 +945,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                                  _starting_price=auction['starting_price'],
                                  _start_time=auction['start_time'],
                                  _end_time=auction['end_time'])
+
+        self._delist_token(owner, _token_id)
         self._finish_auction(_token_id)
 
     @external
@@ -977,6 +976,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                                  _starting_price = auction['starting_price'],
                                  _start_time = auction['start_time'],
                                  _end_time = self.now())
+        self._delist_token(owner, _token_id)
         self._finish_auction(_token_id)
 
     # ================================================
