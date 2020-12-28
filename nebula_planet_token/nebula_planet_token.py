@@ -10,9 +10,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _TOKEN_URIS = 'token_URIs'  # Track token URIs against token ID
     _OWNED_TOKENS = 'owned_tokens'  # Track tokens against token owners
     _TOTAL_SUPPLY = 'total_supply'  # Tracks total number of valid tokens (excluding ones with zero address)
-    _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
-    _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_token_count'  # Tracks number of listed tokens against token owners
-    _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
+    _LISTED_TOKEN_PRICES = 'listed_planet_prices'  # Tracks listed token prices against token IDs
+    _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_planet_count'  # Tracks number of listed tokens against token owners
+    _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_planet_count'  # Tracks total number of listed tokens
     _DIRECTOR = 'director'  # Role responsible for assigning other roles.
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _MINTER = 'minter'  # Role responsible for minting and burning tokens
@@ -683,13 +683,13 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         return price * self._seller_fee.get() / 100000
 
     def _listed_token(self, _token_id: int) -> VarDB:
-        return VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int)
+        return VarDB(f'LISTED_PLANET_{str(_token_id)}', self._db, value_type=int)
 
     def _listed_token_index(self, _index: int) -> VarDB:
-        return VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int)
+        return VarDB(f'LISTED_PLANET_INDEX_{str(_index)}', self._db, value_type=int)
 
     def _owner_listed_token_index(self, _address: Address, _index: int) -> VarDB:
-        return VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str)
+        return VarDB(f'LISTED_PLANET_{str(_address)}_INDEX_{str(_index)}', self._db, value_type=str)
 
     @external(readonly=True)
     def get_listed_token_of_owner_by_index(self, _owner: Address, _index: int) -> int:
