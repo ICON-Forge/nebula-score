@@ -350,6 +350,26 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.get_listed_token_by_index(3), 13)
         self.assertEqual(self.score.total_listed_token_count(), 3)
 
+    def test_throws_when_trying_to_delist_another_users_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.delist_token(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You do not own this NFT")
+
+    def test_director_can_delist_other_users_tokens(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
+        self.score.list_token(11, 100000000000000000)
+
+        self.set_msg(self.test_account1)
+        self.score.delist_token(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
     def test_throws_when_delisting_an_unlisted_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "1.json")
@@ -357,6 +377,17 @@ class TestNebulaPlanetToken(ScoreTestCase):
             self.score.delist_token(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Token is not listed")
+
+    def test_throws_when_delisting_an_auctioned_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.delist_token(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is currently on auction")
+
 
     def test_delists_token_and_keeps_correct_indexes(self):
         self.set_msg(self.test_account1)
@@ -394,7 +425,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score._get_listed_token_index_by_token_id(14), 4)
         self.assertEqual(self.score._get_listed_token_index_by_token_id(16), 2)
 
-    def test_purchases_token(self):
+    def test_purchase_token(self):
         self.set_msg(self.test_account1)
         self.score.mint(self.test_account1, 11, "1.json")
         token_price = 5000000000000000000
@@ -403,6 +434,7 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.set_msg(self.test_account2, token_price)
         self.score.purchase_token(11)
 
+        self.assertEqual(self.score.icx.get_balance(self.test_account1), 1000000000000000000000 + token_price)
         self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - token_price)
         self.assertEqual(self.score.balanceOf(self.test_account1), 0)
         self.assertEqual(self.score.balanceOf(self.test_account2), 1)
@@ -411,6 +443,30 @@ class TestNebulaPlanetToken(ScoreTestCase):
         self.assertEqual(self.score.get_token_price(11), 0)
 
         self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_purchase_token_with_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 100000000000000000000
+        self.score.list_token(11, token_price)
+        print(self.score.icx.get_balance(self.test_account1))
+        print(self.score.icx.get_balance(self.test_account2))
+        print(self.score.icx.get_balance(self.score.address))
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
+        print(self.score.icx.get_balance(self.test_account1))
+        print(self.score.icx.get_balance(self.test_account2))
+        print(self.score.icx.get_balance(self.score.address))
+
+        fee = self.score._calculate_seller_fee(token_price)
+        expected_buyer_balance = 1000000000000000000000 + token_price - fee
+        expected_score_balance = fee
+
+        self.assertEqual(self.score.icx.get_balance(self.test_account1), expected_buyer_balance)
+        self.assertEqual(self.score.icx.get_balance(self.test_account2), 1000000000000000000000 - token_price)
+        self.assertEqual(self.score.icx.get_balance(self.score.address), expected_score_balance)
+
 
     def test_gets_number_of_listed_tokens_of_owner(self):
         self.set_msg(self.test_account1)
@@ -546,3 +602,335 @@ class TestNebulaPlanetToken(ScoreTestCase):
             self.score.purchase_token(11)
         self.assertEqual(e.exception.code, 32)
         self.assertEqual(e.exception.message, "Sent ICX amount needs to be greater than 0")
+
+    def test_create_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.mint(self.test_account2, 12, "1.json")
+        self.score.mint(self.test_account1, 13, "2.json")
+        self.score.list_token(11, 100000000000000000)
+        self.score.create_auction(13, 300000000000000000, 24)
+        self.set_msg(self.test_account2)
+        self.score.list_token(12, 200000000000000000)
+
+        self.assertEqual(self.score.total_listed_token_count(), 3)
+        self.assertEqual(self.score.get_token_price(11), 100000000000000000)
+        self.assertEqual(self.score.get_token_price(12), 200000000000000000)
+        self.assertEqual(self.score.get_token_price(13), -1)
+        self.assertEqual(self.score.get_listed_token_by_index(1), 11)
+        self.assertEqual(self.score.get_listed_token_by_index(2), 13)
+        self.assertEqual(self.score.get_listed_token_by_index(3), 12)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 1), 11)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account2, 1), 12)
+        self.assertEqual(self.score.get_listed_token_of_owner_by_index(self.test_account1, 2), 13)
+
+    def test_create_auction_throws_when_token_already_listed(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "11")
+        self.score.list_token(11, 100000000000000000)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.create_auction(11, 300000000000000000, 24)
+
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is already listed")
+
+    def test_create_auction_throws_when_token_already_on_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "11")
+        self.score.create_auction(11, 500000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.create_auction(11, 300000000000000000, 24)
+
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is currently on auction")
+
+    def test_create_auction_throws_when_duration_is_too_long(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "11")
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.create_auction(11, 300000000000000000, 337) # Two weeks + 1 hour
+
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Auction duration can not be longer than two weeks")
+
+    def test_get_auction_info(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        duration = 24
+        self.score.create_auction(11, 300000000000000000, duration)
+
+        result = self.score.get_auction_info(11)
+        end_time = result['start_time'] + duration * 3600 * 1000 * 1000
+
+        self.assertEqual(result['current_bid'], 0)
+        self.assertEqual(result['highest_bidder'], None)
+        self.assertEqual(result['starting_price'], 300000000000000000)
+        self.assertEqual(result['end_time'], end_time)
+        self.assertEqual(result['seller'], self.test_account1)
+
+    def test_get_auction_info_throws_when_no_listing(self):
+        self.set_msg(self.test_account1)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.get_auction_info(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not on auction")
+
+    def test_get_auction_info_throws_when_token_is_listed_but_not_auctioned(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.list_token(11, 100000000000000000)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.get_auction_info(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not on auction")
+
+    def test_place_bid(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 5000000000000000000
+        self.score.create_auction(11, token_price, 24)
+
+        self.set_msg(self.test_account2, token_price)
+        self.score.place_bid(11)
+
+        result = self.score.get_auction_info(11)
+        self.assertEqual(result['current_bid'], token_price)
+        self.assertEqual(result['highest_bidder'], self.test_account2)
+
+    def test_place_bid_throws_when_amount_is_less_than_minimum_bid(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2, 3000000000000000000)
+            self.score.place_bid(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Your bid 3.0 is lower than minimum bid amount 5.0")
+
+    def test_place_bid_throws_when_token_is_listed_with_fixed_price(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.list_token(11, 5000000000000000000)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2, 5000000000000000000)
+            self.score.place_bid(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not on auction")
+
+    def test_place_bid_throws_when_token_is_not_listed(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2, 5000000000000000000)
+            self.score.place_bid(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not on auction")
+
+    def test_transfer_throws_when_token_is_on_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.transfer(self.test_account2, 11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is currently on auction")
+
+    def test_transfer_from_throws_when_token_is_on_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.transferFrom(self.test_account1, self.test_account2, 11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is currently on auction")
+
+    def test_return_unsold_item_throws_when_status_is_active(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.return_unsold_item(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Auction needs to have status: unsold. Current status: active")
+
+    def test_finalize_auction_throws_when_status_is_active(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.finalize_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Auction needs to have status: unclaimed. Current status: active")
+
+    def test_cancel_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
+
+        self.assertEqual(self.score.total_listed_token_count(), 1)
+
+        self.score.cancel_auction(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    # Test can only be used when uncommenting auction status check
+    # ---
+    # def test_finalize_auction(self):
+    #     self.set_msg(self.test_account1)
+    #     self.score.mint(self.test_account1, 11, "1.json")
+    #     self.score.create_auction(11, 300000000000000000, 24)
+    #
+    #     self.assertEqual(self.score.total_listed_token_count(), 1)
+    #     self.set_msg(self.test_account2, 5000000000000000000)
+    #     self.score.place_bid(11)
+    #     self.score.finalize_auction(11)
+    #
+    #     self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_cancel_auction_throws_when_bid_has_been_made(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        self.set_msg(self.test_account1, 5000000000000000000)
+        self.score.place_bid(11)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Bid has already been made. Auction cannot be cancelled.")
+
+    def test_auction_with_bid_can_be_cancelled_by_director(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
+        self.score.create_auction(11, 300000000000000000, 24)
+
+        self.set_msg(self.test_account2, 5000000000000000000)
+        self.score.place_bid(11)
+
+        self.set_msg(self.test_account1)
+        self.score.cancel_auction(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_auction_without_bid_can_be_cancelled_by_director(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account2, 11, "1.json")
+        self.set_msg(self.test_account2)
+        self.score.create_auction(11, 300000000000000000, 24)
+
+        self.set_msg(self.test_account1)
+        self.score.cancel_auction(11)
+
+        self.assertEqual(self.score.total_listed_token_count(), 0)
+
+    def test_cancel_auction_throws_when_caller_is_not_token_owner(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 5000000000000000000, 24)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.set_msg(self.test_account2)
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "You do not own this NFT")
+
+    def test_cancel_auction_throws_when_token_is_listed(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.list_token(11, 5000000000000000000)
+
+        with self.assertRaises(IconScoreException) as e:
+            self.score.cancel_auction(11)
+        self.assertEqual(e.exception.code, 32)
+        self.assertEqual(e.exception.message, "Token is not on auction")
+
+    def test_place_bid_extend_time(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 5000000000000000000
+        self.score.create_auction(11, token_price, 1)
+
+        result = self.score.get_auction_info(11)
+        print(result['end_time'])
+
+        self.set_msg(self.test_account2, token_price)
+        self.score.place_bid(11)
+
+        result = self.score.get_auction_info(11)
+        print(result['end_time'])
+
+        self.assertEqual(result['current_bid'], token_price)
+        self.assertEqual(result['highest_bidder'], self.test_account2)
+
+
+    def test_create_sale_record_after_cancelling_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
+        self.score.cancel_auction(11)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['record_id'], 1)
+        self.assertEqual(record['token_id'], 11)
+        self.assertEqual(record['type'], 'auction_cancelled')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], self.score.now())
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 300000000000000000)
+        self.assertEqual(record['final_price'], 0)
+        self.assertEqual(record['buyer'], None)
+
+    def test_create_sale_record_after_purchasing_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, "1.json")
+        token_price = 5000000000000000000
+        self.score.list_token(11, token_price)
+
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['token_id'], 11)
+        self.assertEqual(record['type'], 'sale_success')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], 0)
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 5000000000000000000)
+        self.assertEqual(record['final_price'], 5000000000000000000)
+        self.assertEqual(record['buyer'], self.test_account2)
+
+    def test_calculate_seller_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+
+        price = 100
+        fee = self.score._calculate_seller_fee(price)
+
+        self.assertEqual(fee, 2.5)
+
+    def test_gets_seller_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+
+        self.assertEqual(self.score.seller_fee(), 2500)
+

@@ -10,16 +10,21 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _TOKEN_URIS = 'token_URIs'  # Track token URIs against token ID
     _OWNED_TOKENS = 'owned_tokens'  # Track tokens against token owners
     _TOTAL_SUPPLY = 'total_supply'  # Tracks total number of valid tokens (excluding ones with zero address)
-    _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
-    _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_token_count'  # Tracks number of listed tokens against token owners
-    _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
+    _LISTED_TOKEN_PRICES = 'listed_planet_prices'  # Tracks listed token prices against token IDs
+    _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_planet_count'  # Tracks number of listed tokens against token owners
+    _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_planet_count'  # Tracks total number of listed tokens
     _DIRECTOR = 'director'  # Role responsible for assigning other roles.
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _MINTER = 'minter'  # Role responsible for minting and burning tokens
     _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
     _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
+    _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
+    _SELLER_FEE = 'seller_fee' # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
+
     _MAX_ITERATION_LOOP = 100
+    _MINIMUM_BID_INCREMENT = 5
+    _ICX_TO_LOOPS = 1000000000000000000
 
     _ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
@@ -39,6 +44,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_paused = VarDB(self._IS_PAUSED, db, value_type=bool)
         self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
+        self._sale_record_count = VarDB(self._SALE_RECORD_COUNT, db, value_type=int)
+        self._seller_fee = VarDB(self._SELLER_FEE, db, value_type=int)
 
         self._db = db
 
@@ -50,18 +57,30 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_paused.set(False)
         self._is_restricted_sale.set(False)
         self._metadataBaseURL.set('')
+        self._seller_fee.set(0) # equals 2.5%
 
     def on_update(self) -> None:
         super().on_update()
 
+    @external(readonly=True)
+    def name(self) -> str:
+        return "NebulaPlanetToken"
+
+    @external(readonly=True)
+    def symbol(self) -> str:
+        return "NPT"
+
     @payable
     def fallback(self):
-        """
-        Called when funds are sent to the contract.
-        Throws if sender is not the Treasurer.
-        """
-        if self._treasurer.get() != self.msg.sender:
-            revert('You are not allowed to deposit to this contract')
+        self.DepositReceived(self.msg.sender)
+
+    def _check_that_sender_is_nft_owner(self, _owner: Address):
+        if self.msg.sender != _owner:
+            revert("You do not own this NFT")
+
+    def _check_that_contract_is_unpaused(self):
+        if self._is_paused.get() and not self.msg.sender == self._minter.get():
+            revert("Contract is currently paused")
 
     @external
     def withdraw(self, amount: int):
@@ -121,14 +140,6 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._is_restricted_sale.set(False)
 
     @external(readonly=True)
-    def name(self) -> str:
-        return "NebulaPlanetToken"
-
-    @external(readonly=True)
-    def symbol(self) -> str:
-        return "NPT"
-
-    @external(readonly=True)
     def balanceOf(self, _owner: Address) -> int:
         """
         Returns the number of NFTs owned by _owner.
@@ -178,8 +189,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         owner = self.ownerOf(_tokenId)
         if _to == owner:
             revert("Can't approve to yourself.")
-        if self.msg.sender != owner:
-            revert("You do not own this NFT")
+        self._check_that_sender_is_nft_owner(owner)
 
         self._token_approvals[_tokenId] = _to
         self.Approval(owner, _to, _tokenId)
@@ -194,8 +204,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         if self.ownerOf(_tokenId) != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._is_paused.get():
-            revert("Contract is currently paused")
+        self._check_that_contract_is_unpaused()
+        self._check_that_token_is_not_auctioned(_tokenId)
         self._transfer(self.msg.sender, _to, _tokenId)
 
     @external
@@ -210,8 +220,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self.ownerOf(_tokenId) != self.msg.sender and \
                 self._token_approvals[_tokenId] != self.msg.sender:
             revert("You don't have permission to transfer this NFT")
-        if self._is_paused.get() and not self.msg.sender == self._minter.get():
-            revert("Contract is currently paused")
+        self._check_that_contract_is_unpaused()
+
+        self._check_that_token_is_not_auctioned(_tokenId)
+
         self._transfer(_from, _to, _tokenId)
 
     def _transfer(self, _from: Address, _to: Address, _token_id: int):
@@ -316,6 +328,16 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         if self._minter.get() != self.msg.sender:
             revert('You do not have permission set metadata base URL')
         self._metadataBaseURL.set(_base_URL)
+
+    @external
+    def set_seller_fee(self, _new_fee: int):
+        if self._director.get() != self.msg.sender:
+            revert('You do not have permission set seller fee')
+        self._seller_fee.set(_new_fee)
+
+    @external(readonly=True)
+    def seller_fee(self) -> int:
+        return self._seller_fee.get()
 
     # ================================================
     #  Enumerable extension
@@ -454,6 +476,28 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     #  Exchange
     # ================================================
 
+    def _check_that_token_is_not_listed(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] != 0:
+            revert("Token is already listed")
+
+    def _check_that_token_is_not_auctioned(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] == -1:
+            revert("Token is currently on auction")
+
+    def _check_that_token_is_on_auction(self, _token_id):
+        if self._listed_token_prices[str(_token_id)] != -1:
+            revert("Token is not on auction")
+
+    def _check_that_price_is_positive(self, _price):
+        if _price < 0:
+            revert("Price can not be negative")
+        if _price == 0:
+            revert("Price can not be zero")
+
+    def _check_that_sale_is_not_restricted(self):
+        if self._is_restricted_sale.get() and not self.msg.sender == self._minter.get():
+            revert("Listing tokens is currently disabled")
+
     @external
     def list_token(self, _token_id: int, _price: int):
         """
@@ -462,20 +506,15 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         """
         owner = self.ownerOf(_token_id)
         sender = self.msg.sender
-        if self._is_restricted_sale.get() and not sender == self._minter.get():
-            revert("Listing tokens is currently disabled")
-        if self._is_paused.get() and not sender == self._minter.get():
-            revert("Contract is currently paused")
-        if sender != owner:
-            revert("You do not own this NFT")
-        if _price < 0:
-            revert("Price can not be negative")
-        if _price == 0:
-            revert("Price can not be zero")
+        self._check_that_sale_is_not_restricted()
+        self._check_that_contract_is_unpaused()
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_price_is_positive(_price)
+        self._check_that_token_is_not_auctioned(_token_id)
+        self._check_that_token_is_not_listed(_token_id)
 
         self._increment_listed_token_count()
         self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
-
         self._listed_token_prices[str(_token_id)] = _price
 
         self._owner_listed_token_count[sender] += 1
@@ -536,8 +575,10 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def delist_token(self, _token_id: int):
         """ Removes token from sale. Throws if token is not listed. Throws if sender does not own the token. """
         owner = self.ownerOf(_token_id)
-        if self.msg.sender != owner:
+        if self.msg.sender != owner and self.msg.sender != self._director.get(): # Token can also be delisted by Director, although this should be done rarely and with good reason.
             revert("You do not own this NFT")
+        self._check_that_token_is_not_auctioned(_token_id)
+
         if not self.get_token_price(_token_id):
             revert("Token is not listed")
 
@@ -610,8 +651,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         otherwise throws an error. When a correct amount is sent, the NFT will be sent from seller to buyer, and SCORE
         will send token's price worth of ICX to seller (minus fee, if applicable).
         """
-        if self._is_paused.get():
-            revert("Contract is currently paused")
+        self._check_that_contract_is_unpaused()
+
         if not self.msg.value > 0:
             revert(f'Sent ICX amount needs to be greater than 0')
         token_price = self.get_token_price(_token_id)
@@ -622,18 +663,33 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         buyer = self.msg.sender
         self._delist_token(seller, _token_id)
         self._transfer(seller, buyer, _token_id)
-        self.icx.transfer(seller, token_price)
+
+        fee = self._calculate_seller_fee(token_price)
+
+        self.icx.transfer(seller, int(token_price - fee))
+        self.icx.transfer(self.address, int(fee))
+
+        self._create_sale_record(_token_id=_token_id,
+                                 _type='sale_success',
+                                 _seller=seller,
+                                 _buyer=buyer,
+                                 _starting_price=token_price,
+                                 _final_price=token_price,
+                                 _end_time=self.now())
 
         self.PurchaseToken(seller, buyer, _token_id)
 
+    def _calculate_seller_fee(self, price: int) -> int:
+        return price * self._seller_fee.get() / 100000
+
     def _listed_token(self, _token_id: int) -> VarDB:
-        return VarDB(f'LISTED_TOKEN_{str(_token_id)}', self._db, value_type=int)
+        return VarDB(f'LISTED_PLANET_{str(_token_id)}', self._db, value_type=int)
 
     def _listed_token_index(self, _index: int) -> VarDB:
-        return VarDB(f'LISTED_TOKEN_INDEX_{str(_index)}', self._db, value_type=int)
+        return VarDB(f'LISTED_PLANET_INDEX_{str(_index)}', self._db, value_type=int)
 
     def _owner_listed_token_index(self, _address: Address, _index: int) -> VarDB:
-        return VarDB(f'LISTED_{str(_address)}_{str(_index)}', self._db, value_type=str)
+        return VarDB(f'LISTED_PLANET_{str(_address)}_INDEX_{str(_index)}', self._db, value_type=str)
 
     @external(readonly=True)
     def get_listed_token_of_owner_by_index(self, _owner: Address, _index: int) -> int:
@@ -683,6 +739,328 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
                 return x
         return 0
 
+    # ================================================
+    #  Auction
+    # ================================================
+
+    def _auction_item_start_time(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_START_TIME', self._db, value_type=int)
+
+    def _auction_item_end_time(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_END_TIME', self._db, value_type=int)
+
+    def _auction_item_starting_price(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_STARTING_PRICE', self._db, value_type=int)
+
+    def _auction_item_current_bid(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_CURRENT_BID', self._db, value_type=int)
+
+    def _auction_item_highest_bidder(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_HIGHEST_BIDDER', self._db, value_type=Address)
+
+    def _auction_item_seller(self, _token_id: int) -> VarDB:
+        return VarDB(f'AUCTION_{str(_token_id)}_SELLER', self._db, value_type=Address)
+
+    @external
+    def create_auction(self,  _token_id: int, _starting_price: int, _duration_in_hours: int):
+        """
+        Creates an English auction for given _token_id. Maximum auction duration is 336 hours (2 weeks).
+        Throws if sale is restricted or contract is paused. Throws when token is already listed.
+        Throws when sender does not own the token. Throws when starting price is not positive.
+        """
+        owner = self.ownerOf(_token_id)
+        sender = self.msg.sender
+        self._check_that_sale_is_not_restricted()
+        self._check_that_contract_is_unpaused()
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_token_is_not_auctioned(_token_id)
+        self._check_that_token_is_not_listed(_token_id)
+        self._check_that_price_is_positive(_starting_price)
+
+        if _duration_in_hours > 336:
+            revert("Auction duration can not be longer than two weeks")
+
+        self._increment_listed_token_count()
+        self._set_listed_token_index(self._total_listed_token_count.get(), _token_id)
+        self._listed_token_prices[str(_token_id)] = -1
+        self._owner_listed_token_count[sender] += 1
+        self._set_owner_listed_token_index(sender, self._owner_listed_token_count[sender], _token_id)
+
+        start_time = self.now()
+        end_time = start_time + _duration_in_hours * 3600 * 1000 * 1000
+
+        self._auction_item_start_time(_token_id).set(start_time)
+        self._auction_item_end_time(_token_id).set(end_time)
+        self._auction_item_starting_price(_token_id).set(_starting_price)
+        self._auction_item_seller(_token_id).set(owner)
+
+    def _finish_auction(self, _token_id):
+        self._auction_item_start_time(_token_id).remove()
+        self._auction_item_end_time(_token_id).remove()
+        self._auction_item_starting_price(_token_id).remove()
+        self._auction_item_current_bid(_token_id).remove()
+        self._auction_item_highest_bidder(_token_id).remove()
+        self._auction_item_seller(_token_id).remove()
+
+    @external(readonly=True)
+    def get_auction_info(self, _token_id: int) -> dict:
+        self._check_that_token_is_on_auction(_token_id)
+        end_time = self._auction_item_end_time(_token_id).get()
+        starting_price = self._auction_item_starting_price(_token_id).get()
+        current_bid = self._auction_item_current_bid(_token_id).get()
+
+        bid_increment: int
+        if current_bid:
+            bid_increment = current_bid * self._MINIMUM_BID_INCREMENT / 100
+        else:
+            bid_increment = starting_price * self._MINIMUM_BID_INCREMENT / 100
+
+        auction_item = {
+            "token_id": _token_id,
+            "status": self._auction_status(_token_id),
+            "start_time": self._auction_item_start_time(_token_id).get(),
+            "end_time": end_time,
+            "starting_price": starting_price,
+            "current_bid": current_bid,
+            "minimum_bid_increment": bid_increment,
+            "highest_bidder": self._auction_item_highest_bidder(_token_id).get(),
+            "seller": self._auction_item_seller(_token_id).get()
+        }
+        return auction_item
+
+    def _auction_status(self, _token_id) -> str:
+        """
+        Returns auction status as string value:
+        'active' for ongoing auctions.
+        'unsold' for finished auctions where no bid was placed. User can return item to them to finish the auction.
+        'unclaimed' for finished auctions where a bid was placed, but auctioned item is not yet claimed
+        """
+        self._check_that_token_is_on_auction(_token_id)
+
+        end_time = self._auction_item_end_time(_token_id).get()
+        current_bid = self._auction_item_current_bid(_token_id).get()
+        if self.now() < end_time:
+            return 'active'
+        else:
+            if current_bid:
+                return 'unclaimed'
+            else:
+                return 'unsold'
+
+    @external
+    @payable
+    def place_bid(self, _token_id: int):
+        """
+        Used for bidding on auction. Bid amount has to exceed previous bid + minimum bid increment.
+        Throws if auction has ended.
+        Throws if bid amount is less than minimum bid (previous bid + minimum increment).
+        """
+        self._check_that_contract_is_unpaused()
+        self._check_that_token_is_on_auction(_token_id)
+
+        # Check if auction is live
+        end_time = self._auction_item_end_time(_token_id).get()
+        if self.now() > end_time:
+            revert('Can not place a bid. The auction has already ended.')
+
+        # Check if amount is equal to or greater than current_bid + minimum_bid_increment
+        starting_price = self._auction_item_starting_price(_token_id).get()
+        last_bid = self._auction_item_current_bid(_token_id).get()
+        minimum_bid = starting_price
+        if last_bid:
+            minimum_bid = last_bid + last_bid * self._MINIMUM_BID_INCREMENT / 100
+        if self.msg.value < minimum_bid:
+            revert(
+                f'Your bid {str(self.msg.value / self._ICX_TO_LOOPS)} is lower than minimum bid amount {str(minimum_bid / self._ICX_TO_LOOPS)}')
+
+        last_bidder = self._auction_item_highest_bidder(_token_id).get()
+
+        self._auction_item_highest_bidder(_token_id).set(self.msg.sender)
+        self._auction_item_current_bid(_token_id).set(self.msg.value)
+
+        # If bid existed, return last bid to previous high bidder
+        if last_bidder:
+            self.icx.transfer(last_bidder, last_bid)
+
+        # When a last minute bid is place, the auction end time will be extended by one minute.
+        if self.now() > end_time - 1000 * 1000 * 60:
+            self._auction_item_end_time(_token_id).set(end_time + 1000 * 1000 * 120)
+
+    @external
+    def finalize_auction(self, _token_id: int):
+        """
+        Method used for sending auctioned item to the winner of the auction and ICX to seller.
+        Callable by auction winner or seller.
+        Throws if auction does not exist. Throws if auction has not ended.
+        Throws if auction item has already been claimed. Throws if auction bid price was not met.
+        """
+        seller = self.ownerOf(_token_id)
+        buyer = self._auction_item_highest_bidder(_token_id).get()
+        auction_status = self._auction_status(_token_id)
+        self._check_that_token_is_on_auction(_token_id)
+        if auction_status != 'unclaimed':
+            revert(f'Auction needs to have status: unclaimed. Current status: {auction_status}')
+        if not (self.msg.sender == seller or self.msg.sender == buyer):
+            revert("Only seller or buyer can finalize the auction")
+
+        last_bid = self._auction_item_current_bid(_token_id).get()
+
+        # Create a record for successful auction
+        auction = self.get_auction_info(_token_id)
+        self._create_sale_record(_token_id=_token_id,
+                                 _type='auction_success',
+                                 _seller=seller,
+                                 _buyer=buyer,
+                                 _starting_price=auction['starting_price'],
+                                 _final_price=last_bid,
+                                 _start_time=auction['start_time'],
+                                 _end_time=auction['end_time'])
+
+        self._finish_auction(_token_id)
+
+        self._transfer(seller, buyer, _token_id)
+        fee = self._calculate_seller_fee(last_bid)
+        self.icx.transfer(seller, int(last_bid - fee))
+
+    @external
+    def return_unsold_item(self, _token_id: int):
+        """
+        Method used for sending unsold auctioned item back to owner.
+        Throws if auction does not exist. Throws if auction has not ended.
+        Throws if auction item has already been claimed. Throws if auction bid price was not met.
+        """
+        owner = self.ownerOf(_token_id)
+        self._check_that_sender_is_nft_owner(owner)
+        self._check_that_token_is_on_auction(_token_id)
+        auction_status = self._auction_status(_token_id)
+        if auction_status != 'unsold':
+            revert(f'Auction needs to have status: unsold. Current status: {auction_status}')
+
+
+        # Create a record for unsold auction
+        auction = self.get_auction_info(_token_id)
+        self._create_sale_record(_token_id=_token_id,
+                                 _type='auction_unsold',
+                                 _seller=owner,
+                                 _starting_price=auction['starting_price'],
+                                 _start_time=auction['start_time'],
+                                 _end_time=auction['end_time'])
+
+        self._delist_token(owner, _token_id)
+        self._finish_auction(_token_id)
+
+    @external
+    def cancel_auction(self, _token_id: int):
+        """
+        Method used for cancelling auctions that don't have a bid yet. Auction item is returned to the owner.
+        Throws if auction does not exist. Throws if auction has not ended.
+        """
+        owner = self.ownerOf(_token_id)
+        self._check_that_token_is_on_auction(_token_id)
+        if self._auction_status(_token_id) != 'active':
+            revert('Auction needs to be active to get cancelled.')
+        if self.msg.sender == self._director.get(): # Auction can also be cancelled by Director.
+            pass
+        else:
+            self._check_that_sender_is_nft_owner(owner)
+            last_bid = self._auction_item_current_bid(_token_id).get()
+
+            if last_bid and self.msg.sender:
+                revert('Bid has already been made. Auction cannot be cancelled.')
+
+        # Create a record for cancelled auction
+        auction = self.get_auction_info(_token_id)
+        self._create_sale_record(_token_id = _token_id,
+                                 _type = 'auction_cancelled',
+                                 _seller = owner,
+                                 _starting_price = auction['starting_price'],
+                                 _start_time = auction['start_time'],
+                                 _end_time = self.now())
+        self._delist_token(owner, _token_id)
+        self._finish_auction(_token_id)
+
+    # ================================================
+    #  Sale records
+    # ================================================
+
+    def _record_token_id(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_TOKEN_ID', self._db, value_type=int)
+
+    def _record_type(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_TYPE', self._db, value_type=str)
+
+    def _record_seller(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_SELLER', self._db, value_type=Address)
+
+    def _record_buyer(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_BUYER', self._db, value_type=Address)
+
+    def _record_starting_price(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_STARTING_PRICE', self._db, value_type=int)
+
+    def _record_final_price(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_FINAL_PRICE', self._db, value_type=int)
+
+    def _record_start_time(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_START_TIME', self._db, value_type=int)
+
+    def _record_end_time(self, _record_id: int) -> VarDB:
+        return VarDB(f'RECORD_{str(_record_id)}_END_TIME', self._db, value_type=int)
+
+    def _records_count(self) -> int:
+        return self._sale_record_count.get()
+
+    def _create_sale_record(self,
+                            _token_id: int,
+                            _type: str,
+                            _seller: Address,
+                            _end_time: int,
+                            _buyer: Address = None,
+                            _starting_price: int = 0,
+                            _final_price: int = 0,
+                            _start_time: int = 0
+                            ):
+        record_id = self._records_count() + 1
+        self._sale_record_count.set(record_id)
+
+        self._record_token_id(record_id).set(_token_id)
+        self._record_type(record_id).set(_type)
+        self._record_seller(record_id).set(_seller)
+        if _buyer:
+            self._record_buyer(record_id).set(_buyer)
+        if _starting_price:
+            self._record_starting_price(record_id).set(_starting_price)
+        if _final_price:
+            self._record_final_price(record_id).set(_final_price)
+        if _start_time:
+            self._record_start_time(record_id).set(_start_time)
+        if _end_time:
+            self._record_end_time(record_id).set(_end_time)
+
+    @external(readonly=True)
+    def get_sale_record(self, _record_id: int) -> dict:
+        """
+        Method is used for getting historic records of sales and auctions.
+        Includes successful fixed price sales and auctions (successful, cancelled, unsold)
+        """
+        if _record_id > self._sale_record_count.get():
+            revert('Sale record does not exist')
+        record = {
+            "record_id": _record_id,
+            "token_id": self._record_token_id(_record_id).get(),
+            "type": self._record_type(_record_id).get(),
+            "seller": self._record_seller(_record_id).get(),
+            "buyer": self._record_buyer(_record_id).get(),
+            "starting_price": self._record_starting_price(_record_id).get(),
+            "final_price": self._record_final_price(_record_id).get(),
+            "start_time": self._record_start_time(_record_id).get(),
+            "end_time": self._record_end_time(_record_id).get(),
+        }
+        return record
+
+    @external(readonly=True)
+    def sale_record_count(self) -> int:
+        return self._sale_record_count.get()
 
     @eventlog(indexed=3)
     def Approval(self, _owner: Address, _approved: Address, _tokenId: int):
@@ -706,4 +1084,8 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     @eventlog(indexed=2)
     def AssignRole(self, _role: str, _owner: Address):
+        pass
+
+    @eventlog(indexed=1)
+    def DepositReceived(self, _sender: Address):
         pass
