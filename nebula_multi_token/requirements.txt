@@ -1,0 +1,3 @@
+tbears
+chardet==3.*
+pytest
