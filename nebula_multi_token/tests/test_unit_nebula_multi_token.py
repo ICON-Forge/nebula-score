@@ -252,3 +252,18 @@ class TestNebulaMultiToken(ScoreTestCase):
 
         self.assertEqual(self.score.owned_tokens(self.test_account1), expectedAccount1Tokens)
         self.assertEqual(self.score.owned_tokens(self.test_account2), expectedAccount2Tokens)
+    
+    def test_calculate_seller_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+
+        price = 100
+        fee = self.score._calculate_seller_fee(price)
+
+        self.assertEqual(fee, 2.5)
+
+    def test_gets_seller_fee(self):
+        self.set_msg(self.test_account1)
+        self.score.set_seller_fee(2500)
+
+        self.assertEqual(self.score.seller_fee(), 2500)

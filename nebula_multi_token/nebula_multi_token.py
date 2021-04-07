@@ -488,12 +488,38 @@ class NebulaMultiToken(IconScoreBase):
         baseURL = self._metadataBaseURL.get()
 
         return baseURL + token_URI
+    
+    @external
+    def set_token_URI(self, _token_id: int, _token_URI: str):
+        """
+        Set token URI for a given token. Throws if a token does not exist.
+        """
+        if self._minter.get() != self.msg.sender:
+            revert('You do not have permission set token URI')
+        self._set_token_URI(_token_id, _token_URI)
+
+    def _set_token_URI(self, _token_id: int, _token_URI: str):
+        self._ensure_positive(_token_id)
+        self._token_URIs[_token_id] = _token_URI
+
+    def _remove_token_URI(self, _token_id: int):
+        del self._token_URIs[_token_id]
 
     @external
     def set_metadata_base_URL(self, _base_URL: str):
         if self._minter.get() != self.msg.sender:
             revert('You do not have permission set metadata base URL')
         self._metadataBaseURL.set(_base_URL)
+
+    @external
+    def set_seller_fee(self, _new_fee: int):
+        if self._director.get() != self.msg.sender:
+            revert('You do not have permission set seller fee')
+        self._seller_fee.set(_new_fee)
+
+    @external(readonly=True)
+    def seller_fee(self) -> int:
+        return self._seller_fee.get()
 
     # ================================================
     #  Enumerable extension
@@ -636,3 +662,6 @@ class NebulaMultiToken(IconScoreBase):
         :param _approved: true if the operator is approved, false to revoke approval
         """
         pass
+
+    def _calculate_seller_fee(self, price: int) -> int:
+        return price * self._seller_fee.get() / 100000
