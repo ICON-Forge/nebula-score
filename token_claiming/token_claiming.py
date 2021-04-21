@@ -13,13 +13,14 @@ class NonFungibleToken(InterfaceScore):
         pass
 
 
-class NebulaTokenAuction(IconScoreBase):
+class NebulaTokenClaiming(IconScoreBase):
     _NFT_CONTRACT_ADDRESS = 'nft_contract_address'  # Tracks NFT contract address that this contract points to
     _DIRECTOR = 'director'  # Role responsible for assigning other roles.
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _OPERATOR = 'operator'  # Role responsible for listing tokens
     _DISTRIBUTOR = 'distributor'  # Role responsible for sending out tokens claimed in-game
     _WHITELIST_DURATION = 'whitelist_duration'  # Duration of how long a whitelist record is valid for (in minutes)
+    _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
     _MINIMUM_BID_INCREMENT = 5
     _ICX_TO_LOOPS = 1000000000000000000
     _MAX_ITERATION_LOOP = 100
@@ -32,6 +33,7 @@ class NebulaTokenAuction(IconScoreBase):
         self._operator = VarDB(self._OPERATOR, db, value_type=Address)
         self._distributor = VarDB(self._DISTRIBUTOR, db, value_type=Address)
         self._whitelist_duration = VarDB(self._WHITELIST_DURATION, db, value_type=int)
+        self._total_listed_token_count = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
 
         self._db = db
 
@@ -43,6 +45,7 @@ class NebulaTokenAuction(IconScoreBase):
         self._treasurer.set(self.msg.sender)
         self._operator.set(self.msg.sender)
         self._distributor.set(self.msg.sender)
+        self._whitelist_duration.set(60) # Default whitelist duration is 1 hour
 
     def on_update(self) -> None:
         super().on_update()
@@ -98,6 +101,10 @@ class NebulaTokenAuction(IconScoreBase):
         nft_contract.transfer(_to, _tokenId)
         self.TokenTransfer(self.address, _to, _tokenId)
 
+    def _owner_of(self, _tokenId: int) -> Address:
+        nft_contract = self.create_interface_score(self._nft_contract_address.get(), NonFungibleToken)
+        return nft_contract.ownerOf(_tokenId)
+
     @external
     def withdraw(self, amount: int):
         """
@@ -131,33 +138,76 @@ class NebulaTokenAuction(IconScoreBase):
     def _user_token_whitelist_modified_price(self, _token_id: int, _address: Address) -> VarDB:
         return VarDB(f'WHITELIST_TOKEN_{str(_token_id)}_ADDRESS_{str(_address)}_MODIFIED_PRICE', self._db, value_type=int)
 
+    @external(readonly=True)
+    def total_listed_token_count(self) -> int:
+        """ Returns total number of tokens listed for claims. """
+        return self._total_listed_token_count.get()
+
+    def _increment_listed_token_count(self):
+        self._total_listed_token_count.set(self._total_listed_token_count.get() + 1)
+
+    def _decrement_listed_token_count(self):
+        self._total_listed_token_count.set(self._total_listed_token_count.get() - 1)
 
     # Add whitelist duration in minutes (how long whitelist is valid)
     @external
     def set_whitelist_duration(self, _duration_in_minutes: int):
+        if self._director.get() != self.msg.sender:
+            revert('You are not allowed to set whitelist duration')
+
         self._whitelist_duration.set(_duration_in_minutes)
 
-        return
-
     @external(readonly=True)
-    def get_whitelist_duration(self):
+    def get_whitelist_duration(self) -> int:
         return self._whitelist_duration.get()
 
     # Add (or update) token listing (or record) (args: token_id, base_price)
     @external
     def list_token(self, _token_id: int, _base_price: int):
+        """
+        Method used for listing tokens TODO
+        """
         if self.msg.sender != self._operator.get():
             revert('You are not allowed to list a token')
 
+        # # Check if token is owned by contract
+        # if self.address != self._owner_of(_token_id): ## TODO: Comment back in
+        #     revert('Token is not owned by contract')
+
+        if self._token_base_price(_token_id).get() != 0:
+            revert('Token is already listed')
+
         self._token_base_price(_token_id).set(_base_price)
+        self._increment_listed_token_count()
+
+    @external
+    def delist_token(self, _token_id: int):
+        """
+        Method used for delisting tokens TODO
+        """
+        if self.msg.sender != self._operator.get():
+            revert('You are not allowed to delist a token')
+
+        self._delist_token(_token_id)
+
+    def _delist_token(self, _token_id: int):
+        if self._token_base_price(_token_id).get() is None:
+            revert('Token is already delisted')
+
+        self._token_base_price(_token_id).remove()
+        self._decrement_listed_token_count()
 
     # Get token listing (args: token_id; returns token_id, base_price, claimed(boolean))
     @external(readonly=True)
-    def get_token_listing(self, _token_id: int):
-        return {
-            "token_id": _token_id,
-            "base_price": self._token_base_price(_token_id).get()
-        }
+    def get_token_listing(self, _token_id: int) -> dict:
+        token_price = self._token_base_price(_token_id).get()
+        if token_price:
+            return {
+                "token_id": _token_id,
+                "base_price": self._token_base_price(_token_id).get()
+            }
+        else:
+            return {}
 
     # Add whitelist record (args: token_id, address, modified_price)
     @external
@@ -165,34 +215,44 @@ class NebulaTokenAuction(IconScoreBase):
         if self.msg.sender != self._distributor.get():
             revert('You are not allowed to whitelist a token')
 
+        token_price = self._token_base_price(_token_id).get()
+        if not token_price:
+            revert('Token is not listed')
+
+        # Check if modified price is not less than half of base_price
+        if _modified_price < token_price / 2:
+            revert('Modified price is too low')
+
         self._user_token_whitelist_time(_token_id, _address).set(self.now())
         self._user_token_whitelist_modified_price(_token_id, _address).set(_modified_price)
 
     # Get whitelist status (args: token_id, address; returns: everything)
     @external(readonly=True)
-    def get_record(self, _token_id: int, _address: Address):
+    def get_whitelist_record(self, _token_id: int, _address: Address) -> dict:
         whitelist_time = self._user_token_whitelist_time(_token_id, _address).get()
+        if whitelist_time == 0:
+            return {}
+
         whitelist_duration = self._whitelist_duration.get() * 60 * 1000 * 1000
         whitelist_expiration_time = whitelist_time + whitelist_duration
 
+        token_price = self._token_base_price(_token_id).get()
         is_valid_whitelist: bool
-        if (self.now() > whitelist_expiration_time):
-            is_valid_whitelist = False
-        else:
+        if token_price and self.now() < whitelist_expiration_time:
             is_valid_whitelist = True
+        else:
+            is_valid_whitelist = False
 
         return {
             "token_id": _token_id,
             "address": _address,
             "valid": is_valid_whitelist,
-            "base_price": int,
-            "modified_price": int,
+            "base_price": token_price,
+            "modified_price": self._user_token_whitelist_modified_price(_token_id, _address).get(),
             "whitelist_time": whitelist_time,
             "whitelist_expiration_time": whitelist_expiration_time
         }
 
-
-    # Claim token (args: token_id)
     @external
     @payable
     def claim_token(self, _token_id: int):
@@ -202,23 +262,20 @@ class NebulaTokenAuction(IconScoreBase):
             revert(f'Sent ICX amount needs to be greater than 0')
 
         # Check if address (sender) and token is whitelisted (and not expired)
-        whitelist_record = self.get_record(_token_id, sender)
+        whitelist_record = self.get_whitelist_record(_token_id, sender)
         if not whitelist_record:
-            revert(f'No whitelist entry for given token_id')
+            revert(f'This address is not whitelisted for token_id {_token_id}')
 
         is_valid = whitelist_record["valid"]
         if not is_valid:
             revert(f'Whitelist is not valid')
 
-        # Check if modified price is not less than half of base_price
-        if whitelist_record["modified_price"] < whitelist_record["base_price"] / 2:
-            revert('Modified is too low')
-
         # Check that payable amount matches modified_price
         if self.msg.value != whitelist_record["modified_price"]:
             revert(f'Whitelist record price does not match sent amount')
 
-        self._transferToken(sender, _token_id)
+        # self._transferToken(sender, _token_id) # TODO: Comment back in
+        self._delist_token(_token_id)
 
 
 
