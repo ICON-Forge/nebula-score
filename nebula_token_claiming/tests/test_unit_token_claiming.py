@@ -1,4 +1,4 @@
-from ..token_claiming import NebulaTokenClaiming
+from ..nebula_token_claiming import NebulaTokenClaiming
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 from iconservice import *
 
