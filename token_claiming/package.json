@@ -1,5 +1,5 @@
 {
     "version": "0.0.1",
-    "main_module": "nebula_spaceship_token",
-    "main_score": "NebulaSpaceshipToken"
+    "main_module": "nebula_token_claiming",
+    "main_score": "NebulaTokenClaiming"
 }
