@@ -21,9 +21,7 @@ class NebulaTokenClaiming(IconScoreBase):
     _DISTRIBUTOR = 'distributor'  # Role responsible for sending out tokens claimed in-game
     _WHITELIST_DURATION = 'whitelist_duration'  # Duration of how long a whitelist record is valid for (in minutes)
     _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_token_count'  # Tracks total number of listed tokens
-    _MINIMUM_BID_INCREMENT = 5
     _ICX_TO_LOOPS = 1000000000000000000
-    _MAX_ITERATION_LOOP = 100
 
     def __init__(self, db: IconScoreDatabase) -> None:
         super().__init__(db)
@@ -36,7 +34,6 @@ class NebulaTokenClaiming(IconScoreBase):
         self._total_listed_token_count = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
 
         self._db = db
-
 
     def on_install(self) -> None:
         super().on_install()
@@ -52,7 +49,7 @@ class NebulaTokenClaiming(IconScoreBase):
 
     @external(readonly=True)
     def name(self) -> str:
-        return "NebulaTokenAuction"
+        return "NebulaTokenClaiming"
 
     @external
     def assign_treasurer(self, _address: Address):
@@ -170,9 +167,9 @@ class NebulaTokenClaiming(IconScoreBase):
         if self.msg.sender != self._operator.get():
             revert('You are not allowed to list a token')
 
-        # # Check if token is owned by contract
-        # if self.address != self._owner_of(_token_id): ## TODO: Comment back in
-        #     revert('Token is not owned by contract')
+        # Check if token is owned by contract
+        if self.address != self._owner_of(_token_id):
+            revert('Token is not owned by contract')
 
         if self._token_base_price(_token_id).get() != 0:
             revert('Token is already listed')
@@ -289,7 +286,7 @@ class NebulaTokenClaiming(IconScoreBase):
         if self.msg.value != whitelist_record["modified_price"]:
             revert(f'Whitelist record price does not match sent amount')
 
-        # self._transferToken(sender, _token_id) # TODO: Comment back in
+        self._transferToken(sender, _token_id)
         self._delist_token(_token_id)
 
 
