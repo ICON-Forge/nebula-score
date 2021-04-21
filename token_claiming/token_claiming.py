@@ -149,7 +149,6 @@ class NebulaTokenClaiming(IconScoreBase):
     def _decrement_listed_token_count(self):
         self._total_listed_token_count.set(self._total_listed_token_count.get() - 1)
 
-    # Add whitelist duration in minutes (how long whitelist is valid)
     @external
     def set_whitelist_duration(self, _duration_in_minutes: int):
         if self._director.get() != self.msg.sender:
@@ -161,11 +160,12 @@ class NebulaTokenClaiming(IconScoreBase):
     def get_whitelist_duration(self) -> int:
         return self._whitelist_duration.get()
 
-    # Add (or update) token listing (or record) (args: token_id, base_price)
     @external
     def list_token(self, _token_id: int, _base_price: int):
         """
-        Method used for listing tokens TODO
+        Lists a token for claiming (requires whitelisting first) with a base price.
+        Can be done by operator only. Token has to be in contract wallet.
+        Throws if token is already listed.
         """
         if self.msg.sender != self._operator.get():
             revert('You are not allowed to list a token')
@@ -183,7 +183,7 @@ class NebulaTokenClaiming(IconScoreBase):
     @external
     def delist_token(self, _token_id: int):
         """
-        Method used for delisting tokens TODO
+        Method used for delisting tokens. Throws if token is already delisted
         """
         if self.msg.sender != self._operator.get():
             revert('You are not allowed to delist a token')
@@ -197,9 +197,11 @@ class NebulaTokenClaiming(IconScoreBase):
         self._token_base_price(_token_id).remove()
         self._decrement_listed_token_count()
 
-    # Get token listing (args: token_id; returns token_id, base_price, claimed(boolean))
     @external(readonly=True)
     def get_token_listing(self, _token_id: int) -> dict:
+        """
+        Returns a token listing for a given token_id.
+        """
         token_price = self._token_base_price(_token_id).get()
         if token_price:
             return {
@@ -209,9 +211,15 @@ class NebulaTokenClaiming(IconScoreBase):
         else:
             return {}
 
-    # Add whitelist record (args: token_id, address, modified_price)
     @external
     def add_whitelist_record(self, _token_id: int, _address: Address, _modified_price: int):
+        """
+        Creates a whitelist record for a token that is listed. Whitelisting is done to restrict what
+        wallets can claim tokens. One whitelist record applies to one address and token pair and expires
+        some time after record creation (specified by whitelist_duration).
+        Can be done only by distributor role.
+        Throws if token is not listed. Throws if modified price is less than half of base price.
+        """
         if self.msg.sender != self._distributor.get():
             revert('You are not allowed to whitelist a token')
 
@@ -226,9 +234,11 @@ class NebulaTokenClaiming(IconScoreBase):
         self._user_token_whitelist_time(_token_id, _address).set(self.now())
         self._user_token_whitelist_modified_price(_token_id, _address).set(_modified_price)
 
-    # Get whitelist status (args: token_id, address; returns: everything)
     @external(readonly=True)
     def get_whitelist_record(self, _token_id: int, _address: Address) -> dict:
+        """
+        Returns info about token listing and details of the whitelisting record.
+        """
         whitelist_time = self._user_token_whitelist_time(_token_id, _address).get()
         if whitelist_time == 0:
             return {}
@@ -256,8 +266,13 @@ class NebulaTokenClaiming(IconScoreBase):
     @external
     @payable
     def claim_token(self, _token_id: int):
+        """
+        Method is used for claiming previously whitelisted tokens. It checks the whitelist records for
+        sender address, correct ICX amount and if whitelisting is still valid.
+        Throws when address is not whitelisted. Throws when sending ICX that doesn't match price.
+        Throws when whitelisting has expired.
+        """
         sender = self.msg.sender
-        # Check that token base_price is not zero
         if not self.msg.value > 0:
             revert(f'Sent ICX amount needs to be greater than 0')
 
@@ -276,7 +291,6 @@ class NebulaTokenClaiming(IconScoreBase):
 
         # self._transferToken(sender, _token_id) # TODO: Comment back in
         self._delist_token(_token_id)
-
 
 
     @eventlog(indexed=3)
