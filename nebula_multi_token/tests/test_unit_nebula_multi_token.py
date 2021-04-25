@@ -51,6 +51,20 @@ class TestNebulaMultiToken(ScoreTestCase):
         self.assertEqual(self.score.totalSupplyPerToken(1), 10)
         self.assertEqual(self.score.tokenOfOwnerByIndex(self.test_account1, 1), 1)
     
+    def test_increments_total_supply(self):
+        self.set_msg(self.test_account1)
+        self.score.mint_to(self.test_account1, 11, 5, "1.json")
+        self.score.mint_to(self.test_account1, 12, 5, "2.json")
+
+        self.assertEqual(self.score.totalSupply(), 2)
+
+    def test_decrements_total_supply(self):
+        self.set_msg(self.test_account1)
+        self.score.mint_to(self.test_account1, 11, 10, "1.json")
+        self.score.burn(11, 9)
+
+        self.assertEqual(self.score.totalSupplyPerToken(11), 1)
+    
     def test_no_balance_of_token(self):
         self.set_msg(self.test_account1)
 
@@ -267,3 +281,60 @@ class TestNebulaMultiToken(ScoreTestCase):
         self.score.set_seller_fee(2500)
 
         self.assertEqual(self.score.seller_fee(), 2500)
+
+    def test_create_sale_record_after_cancelling_auction(self):
+        self.set_msg(self.test_account1)
+        self.score.mint_to(self.test_account1, 11, "1.json")
+        self.score.create_auction(11, 300000000000000000, 24)
+        self.score.cancel_auction(11)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['record_id'], 1)
+        self.assertEqual(record['token_id'], 11)
+        self.assertEqual(record['type'], 'auction_cancelled')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], self.score.now())
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 300000000000000000)
+        self.assertEqual(record['final_price'], 0)
+        self.assertEqual(record['buyer'], None)
+        self.assertEqual(record['number_tokens'], 5)
+
+    def test_create_sale_record_after_purchasing_token(self):
+        self.set_msg(self.test_account1)
+        self.score.mint(self.test_account1, 11, 10, "1.json")
+        token_price = 5000000000000000000
+        self.score.list_token(11, token_price)
+
+        self.set_msg(self.test_account2, token_price)
+        self.score.purchase_token(11)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['token_id'], 11)
+        self.assertEqual(record['type'], 'sale_success')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], 0)
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 5000000000000000000)
+        self.assertEqual(record['final_price'], 5000000000000000000)
+        self.assertEqual(record['buyer'], self.test_account2)
+        self.assertEqual(record['number_tokens'], 5)
+
+    def test_get_auction_info(self):
+        self.set_msg(self.test_account1)
+        self.score.mint_to(self.test_account1, 11, 10, "1.json")
+        duration = 24
+        self.score.create_auction(11, 300000000000000000, duration, 5)
+
+        result = self.score.get_auction_info(11)
+        end_time = result['start_time'] + duration * 3600 * 1000 * 1000
+
+        self.assertEqual(result['current_bid'], 0)
+        self.assertEqual(result['highest_bidder'], None)
+        self.assertEqual(result['starting_price'], 300000000000000000)
+        self.assertEqual(result['end_time'], end_time)
+        self.assertEqual(result['seller'], self.test_account1)
