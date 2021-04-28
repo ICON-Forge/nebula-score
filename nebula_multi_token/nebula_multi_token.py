@@ -772,39 +772,34 @@ class NebulaMultiToken(IconScoreBase):
         return result_dict
     
     @external
-    def cancel_own_sell_order(self, _tokenID: int, _user_index: int) -> dict:
+    def cancel_own_sell_order(self, _tokenID: int, _user_index: int):
         """
         Remove sell order.
         """
         
         sender = self.msg.sender
-        require(self._is_owner_of_token(sender, _token_id) == True, "Sender does not own the token.")
+        require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
+
+        # User       
+        mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
+        quantity = self._get_mp_offer_quantity(_tokenID, mapping[1]) * -1
+        self._set_listed_token_balance_by_owner(sender, _tokenID, quantity)
+
+        token_index = self._get_address_index_to_tokenid_index(sender, _user_index)
 
         # Remove and fix Index Mapping
-        self._remove_sale_and_fix_index(sender, _tokenID, _user_index)
+        self._remove_sale_and_fix_index(sender, _tokenID, token_index, _user_index)
 
-        # User
-        
-        mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
-        quantitiy = self._get_mp_offer_quantity(_tokenID, mapping[1]) * -1
-        self._set_listed_token_balance_by_owner(sender, _token_id, _quantity)
-        self._decrease_number_sell_orders_per_owner(sender)
+        self._set_mp_offer_price(_tokenID, token_index, 0)
+        self._set_mp_offer_quantity(_tokenID, token_index, 0)
 
-        # TODO NEed to fix the indices & mappings after remove the order
-        self._remove_address_index_to_tokenid_index(sender, _token_id, _user_index)
 
-        self._remove_mp_offer_price(_token_id, _token_index, _price)
-        self._remove_mp_offer_price(_token_id, _token_index, _quantity)
-
-    def _remove_sale_and_fix_index(self, _address: Address, _token_id: int, _user_index: int):
-        token_index = self._get_address_index_to_tokenid_index(_address, _user_index)
-        
-        
-        last_index_tokenid = self._get_number_sell_orders_per_tokenid(_token_id)
+    def _remove_sale_and_fix_index(self, _address: Address, _tokenID: int, _token_index: int, _user_index: int):
+        last_index_tokenid = self._get_number_sell_orders_per_tokenid(_tokenID)
         last_index_address = self._get_number_sell_orders_per_owner(_address)
 
         last_index_tokenid_to_address = self._get_tokenid_index_to_address_indexing(_tokenID, last_index_tokenid).split("_")
-        last_index_address_to_tokenid = self._get_address_index_to_tokenid_index(_address, last_index_address_to_tokenid).split("_")
+        last_index_address_to_tokenid = self._get_address_index_to_tokenid_index(_address, last_index_address).split("_")
 
         self._remove_tokenid_index_to_address_index(_tokenID, _token_index)
         self._remove_tokenid_index_to_address_index(_tokenID, last_index_tokenid)
@@ -813,20 +808,20 @@ class NebulaMultiToken(IconScoreBase):
         self._remove_address_index_to_tokenid_index(_address, last_index_address)
         #TODO Fix setting removed index to last index
         if last_index_tokenid > 1:
-            self._set_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _token_id, token_index, last_index_tokenid_to_address[1])
+            self._set_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _tokenID, _token_index, last_index_tokenid_to_address[1])
         
         if last_index_address > 1:
             self._set_address_index_to_tokenid_index(_address, last_index_address_to_tokenid[0], last_index_address_to_tokenid[1], _user_index)
 
         # Decrease sell order count for tokenid and address
-        self._decrease_number_sell_orders_per_tokenid(self, _token_id)
-        self._decrease_number_sell_orders_per_owner(self, _address)
+        self._decrease_number_sell_orders_per_tokenid(_tokenID)
+        self._decrease_number_sell_orders_per_owner(_address)
 
     def _set_tokenid_index_to_address_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
         self._index_mapping[str(_tokenID) + "_" + str(_token_index)] = str(_address) + "_" + str(_user_token_index)
     
     def _remove_tokenid_index_to_address_index(self, _tokenID: int, _token_index: int):
-        self._index_mapping[str(_tokenID) + "_" + str(_token_index)].remove()
+        self._index_mapping[str(_tokenID) + "_" + str(_token_index)] = ""
 
     def _get_tokenid_index_to_address_indexing(self, _tokenID: int, _token_index: int) -> str:
         return self._index_mapping[str(_tokenID) + "_" + str(_token_index)] #todo remove function
@@ -835,7 +830,7 @@ class NebulaMultiToken(IconScoreBase):
         self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)] = str(_tokenID) + "_" + str(_token_index)
     
     def _remove_address_index_to_tokenid_index(self, _address: Address, _user_token_index: int):
-        self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)].remove()
+        self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)] = ""
     
     def _get_address_index_to_tokenid_index(self, _address: Address, _index: int) -> str:
         return self._address_index_to_tokenid_index[str(_address) + "_" + str(_index)]
