@@ -38,7 +38,8 @@ class NebulaMultiToken(IconScoreBase):
     _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _SELLER_FEE = 'seller_fee' # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
-
+    _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
+    
     # Marketplace
     _LISTED_TOKEN_BALANCE_BY_OWNER = "listed_token_balance_by_owner" #How many tokens of the same id are locked for each tokenid/address 
     _LISTED_SALES_PER_TOKENID_BY_OWNER = "listed_sales_per_tokenid_by_owner" #How many sales per tokenid does an owner have 
@@ -78,6 +79,7 @@ class NebulaMultiToken(IconScoreBase):
         self._minters = DictDB(self._MINTER, db, value_type=Address)
 
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
+        self._sale_record_count = VarDB(self._SALE_RECORD_COUNT, db, value_type=int)
         self._seller_fee = VarDB(self._SELLER_FEE, db, value_type=int)
 
         # Marketplace
@@ -783,18 +785,62 @@ class NebulaMultiToken(IconScoreBase):
         # User       
         mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
         quantity = self._get_mp_offer_quantity(_tokenID, mapping[1]) * -1
-        self._set_listed_token_balance_by_owner(sender, _tokenID, quantity)
+        
 
         token_index = self._get_address_index_to_tokenid_index(sender, _user_index)
 
         # Remove and fix Index Mapping
-        self._remove_sale_and_fix_index(sender, _tokenID, token_index, _user_index)
+        self._remove_sale_and_fix_index(sender, _tokenID, token_index, _user_index, quantity)
 
-        self._set_mp_offer_price(_tokenID, token_index, 0)
-        self._set_mp_offer_quantity(_tokenID, token_index, 0)
+        
+
+    @external
+    @payable
+    def purchase_token(self, _tokenID: int, _token_index: int):
+        """
+        Purchase a token offer from the market place. The amount of ICX sent must match the token sale price,
+        otherwise throws an error. When a correct amount is sent, the NFT will be sent from seller to buyer, and SCORE
+        will send token's price worth of ICX to seller (minus fee, if applicable).
+        """
+        self._check_that_contract_is_unpaused()
+
+        if not self.msg.value > 0:
+            revert(f'Sent ICX amount needs to be greater than 0')
+        
+        token_price = self._get_mp_offer_price(_tokenID, _token_index)
+        
+        if self.msg.value != token_price:
+            revert(f'Sent ICX amount ({self.msg.value}) does not match token price ({token_price})')
+
+        address_index = self._get_tokenid_index_to_address_indexing(_tokenID, _token_index).split("_")
+        seller = Address.from_string(address_index[0])
+        user_index = address_index[1]
+        buyer = self.msg.sender
+        quantity = self._get_mp_offer_quantity(_tokenID, _token_index) 
+
+        self._remove_sale_and_fix_index(seller, _tokenID, _token_index, user_index, quantity)
+        self._transfer(seller, buyer, _tokenID, quantity)
+
+        fee = self._calculate_seller_fee(token_price)
+
+        self.icx.transfer(seller, int(token_price - fee))
+
+        self.icx.transfer(self.address, int(fee))
+
+        self._create_sale_record(_token_id=_tokenID,
+                                 _type='sale_success',
+                                 _seller=seller,
+                                 _buyer=buyer,
+                                 _starting_price=token_price,
+                                 _final_price=token_price,
+                                 _end_time=self.now(),
+                                 _number_tokens=quantity)
+
+        self.PurchaseToken(seller, buyer, _tokenID)
 
 
-    def _remove_sale_and_fix_index(self, _address: Address, _tokenID: int, _token_index: int, _user_index: int):
+    def _remove_sale_and_fix_index(self, _address: Address, _tokenID: int, _token_index: int, _user_index: int, _quantity: int):
+        self._set_listed_token_balance_by_owner(_address, _tokenID, _quantity)
         last_index_tokenid = self._get_number_sell_orders_per_tokenid(_tokenID)
         last_index_address = self._get_number_sell_orders_per_owner(_address)
 
@@ -817,6 +863,9 @@ class NebulaMultiToken(IconScoreBase):
         self._decrease_number_sell_orders_per_tokenid(_tokenID)
         self._decrease_number_sell_orders_per_owner(_address)
 
+        self._set_mp_offer_price(_tokenID, _token_index, 0)
+        self._set_mp_offer_quantity(_tokenID, _token_index, 0)
+
     def _set_tokenid_index_to_address_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
         self._index_mapping[str(_tokenID) + "_" + str(_token_index)] = str(_address) + "_" + str(_user_token_index)
     
@@ -824,7 +873,7 @@ class NebulaMultiToken(IconScoreBase):
         self._index_mapping[str(_tokenID) + "_" + str(_token_index)] = ""
 
     def _get_tokenid_index_to_address_indexing(self, _tokenID: int, _token_index: int) -> str:
-        return self._index_mapping[str(_tokenID) + "_" + str(_token_index)] #todo remove function
+        return self._index_mapping[str(_tokenID) + "_" + str(_token_index)]
 
     def _set_address_index_to_tokenid_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
         self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)] = str(_tokenID) + "_" + str(_token_index)
@@ -920,6 +969,9 @@ class NebulaMultiToken(IconScoreBase):
             revert("Price can not be negative")
         if _price == 0:
             revert("Price can not be zero")
+    
+    def _calculate_seller_fee(self, price: int) -> int:
+        return price * self._seller_fee.get() / 100000
 
     # ================================================
     #  Sale records

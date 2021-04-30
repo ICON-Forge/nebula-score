@@ -128,3 +128,43 @@ class TestMarketPlace(ScoreTestCase):
 
         self.score.cancel_own_sell_order(1, 0)
 
+    
+    def test_purchase_sell_order(self):
+        # Mint Tokens
+        self.set_msg(self.test_account1)
+        self.score.mint(1, 10, "1.json")
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
+
+        # Create sell order
+        self.score.create_sell_order(1, 100, 5)
+
+        # List sell order
+        self.assertEqual(self.score.list_sell_orders(1), {0: [100, 5, str(self.test_account1)]})
+
+        self.assertEqual(self.score.list_own_sell_orders(), {0: [1, 100, 5]})
+
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
+
+        self.set_msg(self.test_account2, 100)
+        self.score.purchase_token(1, 0)
+
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 5)
+        self.assertEqual(self.score.balanceOf(self.test_account2, 1), 5)
+
+        record = self.score.get_sale_record(1)
+
+        self.assertEqual(self.score._records_count(), 1)
+        self.assertEqual(record['token_id'], 1)
+        self.assertEqual(record['type'], 'sale_success')
+        self.assertEqual(record['seller'], self.test_account1)
+        self.assertEqual(record['start_time'], 0)
+        self.assertEqual(record['end_time'], self.score.now())
+        self.assertEqual(record['starting_price'], 100)
+        self.assertEqual(record['final_price'], 100)
+        self.assertEqual(record['buyer'], self.test_account2)
+        self.assertEqual(record['number_tokens'], 5)
+        
+
+
+
+
