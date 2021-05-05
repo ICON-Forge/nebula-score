@@ -137,7 +137,6 @@ class TestMarketPlace(ScoreTestCase):
 
         # Create sell order
         self.score.create_sell_order(1, 100, 5)
-
         # List sell order
         self.assertEqual(self.score.list_sell_orders(1), {0: [100, 5, str(self.test_account1)]})
 
@@ -163,7 +162,22 @@ class TestMarketPlace(ScoreTestCase):
         self.assertEqual(record['final_price'], 100)
         self.assertEqual(record['buyer'], self.test_account2)
         self.assertEqual(record['number_tokens'], 5)
-        
+
+
+    def test_purchase_buy_order(self):
+        # Mint Tokens
+        self.set_msg(self.test_account1)
+        self.score.mint(1, 10, "1.json")
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
+
+        # Create buy order
+        self.set_msg(self.test_account2, 100)
+        self.score.create_buy_order(1, 100, 5)
+
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
+        self.assertEqual(self.score.balanceOf(self.test_account2, 1), 0)
+
+
 
 
 
