@@ -797,10 +797,14 @@ class NebulaMultiToken(IconScoreBase):
         """
         
         sender = self.msg.sender
+
+        # TODO more checks needed. The is owner check is not correct.
         require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
+        
+        mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
+        require(mapping[0] != _tokenID, "TokenID does not match stored tokenID")
 
         # User       
-        mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
         quantity = self._get_mp_offer_quantity(_tokenID, mapping[1]) * -1
         
 
@@ -995,10 +999,45 @@ class NebulaMultiToken(IconScoreBase):
         self._increase_number_buy_orders_per_tokenid(_token_id)
         self._increase_number_buy_orders_per_owner(sender)
         self._increase_listed_purchases_per_tokenID_by_owner(sender, _token_id)
-
-        self.icx.transfer(self.address, _price)
-
     
+    @external
+    def cancel_own_buy_order(self, _tokenID: int, _user_index: int):
+        """
+        Remove sell order.
+        """
+        
+        sender = self.msg.sender
+        tokenID_index = self._get_buy_address_index_to_tokenid_index(sender, _user_index)
+        token_index = int(tokenID_index.split("_")[1])
+        require(tokenID_index.split("_")[0] != _tokenID, "TokenID does not match stored tokenID")
+        # TODO if it returns 0 in case it is wrong.
+        #require(tokenID_index != 0, "Sender does not have a buy order with the provided id.")
+
+        # User       
+        #mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
+        price = self._get_mp_buy_price(_tokenID, token_index)
+
+        # Remove and fix Index Mapping
+        self._remove_buy_order_and_fix_index(sender, _tokenID, token_index, _user_index)
+
+        # Send the icx back
+        # TODO remove fee
+        self.icx.transfer(sender, price)
+
+
+    def _remove_buy_order_and_fix_index(self, _address: Address, _token_id: int, _token_index: int, _user_index: int):
+        self._set_mp_buy_price(_token_id, _token_index, 0)
+        self._set_mp_buy_quantity(_token_id, _token_index, 0)
+
+        # Set Index Mapping
+        self._remove_buy_tokenid_index_to_address_index(_token_id, _token_index)
+        self._remove_buy_address_index_to_tokenid_index(_address, _user_index)
+
+        # Decrease sell order count for tokenid and address
+        self._decrease_number_buy_orders_per_tokenid(_token_id)
+        self._decrease_number_buy_orders_per_owner(_address)
+        self._decrease_listed_purchases_per_tokenID_by_owner(_address, _token_id)
+
     def _set_mp_buy_price(self, _tokenID: int, _index: int, _price: int):
         self._mp_buy_price_list[_tokenID][_index] = _price
 

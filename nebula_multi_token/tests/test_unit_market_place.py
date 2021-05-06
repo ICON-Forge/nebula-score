@@ -177,8 +177,24 @@ class TestMarketPlace(ScoreTestCase):
         self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
         self.assertEqual(self.score.balanceOf(self.test_account2, 1), 0)
 
+    def test_cancel_buy_order(self):
+        # Mint Tokens
+        self.set_msg(self.test_account1)
+        self.score.mint(1, 10, "1.json")
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
 
+        # Create buy order
+        self.set_msg(self.test_account2, 100)
+        self.score.create_buy_order(1, 100, 5)
 
+        self.assertEqual(self.get_balance(self.test_account2), 999999999999999999900)
+
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
+        self.assertEqual(self.score.balanceOf(self.test_account2, 1), 0)
+
+        self.score.cancel_own_buy_order(1, 0)
+
+        self.assertEqual(self.get_balance(self.test_account2), 1000000000000000000000)
 
 
 
