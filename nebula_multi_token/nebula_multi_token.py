@@ -1003,7 +1003,7 @@ class NebulaMultiToken(IconScoreBase):
     @external
     def cancel_own_buy_order(self, _tokenID: int, _user_index: int):
         """
-        Remove sell order.
+        Remove buy order.
         """
         
         sender = self.msg.sender
@@ -1023,6 +1023,24 @@ class NebulaMultiToken(IconScoreBase):
         # Send the icx back
         # TODO remove fee
         self.icx.transfer(sender, price)
+    
+    @external
+    def list_buy_orders(self,  _token_id: int, offset: int=0) -> dict:
+        """
+        List all buy orders for a specific token id.
+        Throws when offset is higher than the available buy orders.
+        """
+        num_buy_orders = self._get_number_buy_orders_per_tokenid(_token_id)
+        require(offset < num_buy_orders, "Offset is higher than available buy orders.")
+
+        result_dict = {}
+        for i in range(0 + offset, min(offset + 100, num_buy_orders)):
+            price = self._get_mp_buy_price(_token_id, i)
+            quantity = self._get_mp_buy_quantity(_token_id, i)
+            address = self._get_buy_tokenid_index_to_address_indexing(_token_id, i).split("_")[0]
+            result_dict[i] = [price, quantity, address]
+
+        return result_dict
 
 
     def _remove_buy_order_and_fix_index(self, _address: Address, _token_id: int, _token_index: int, _user_index: int):
