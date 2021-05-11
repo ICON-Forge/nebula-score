@@ -1039,7 +1039,7 @@ class NebulaMultiToken(IconScoreBase):
             quantity = self._get_mp_buy_quantity(_token_id, i)
             address = self._get_buy_tokenid_index_to_address_indexing(_token_id, i).split("_")[0]
             result_dict[i] = [price, quantity, address]
-
+            #TODO the tokenid index is missing for the accept_buy_order to be accepted.
         return result_dict
     
     @external
@@ -1062,14 +1062,72 @@ class NebulaMultiToken(IconScoreBase):
 
         return result_dict
 
+    @external
+    def accept_buy_order(self, _tokenID: int, _token_index: int):
+        """
+        Accept a buy order for your tokens from the market place. The sender wallet needs to hold a sufficient amount
+        of unlocked tockens, otherwise throws an error. When a correct amount is available, the tokens will be transfered
+        to to the person offering the icx and icx will be send to the token holder (minus fee, if applicable).
+        """
+        self._check_that_contract_is_unpaused()
+        self._check_that_sale_is_not_restricted()
+
+        sender = self.msg.sender
+        require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
+        balance = self.balanceOf(sender, _tokenID)        
+
+        quantity = self._get_mp_buy_quantity(_tokenID, _token_index)
+
+        require(balance - self._get_listed_token_balance_by_owner(sender, _tokenID) >= quantity, "Number of tokens is less than available tokens.")
+
+        address_index = self._get_buy_tokenid_index_to_address_indexing(_tokenID, _token_index).split("_")
+
+        buyer = Address.from_string(address_index[0])
+        user_index = address_index[1]
+ 
+        self._remove_buy_order_and_fix_index(buyer, _tokenID, _token_index, user_index)
+        self._transfer(sender, buyer, _tokenID, quantity)
+        
+        token_price = self._get_mp_buy_price(_tokenID, _token_index)
+
+        fee = self._calculate_seller_fee(token_price)
+
+        self.icx.transfer(sender, int(token_price - fee))
+
+        self._create_sale_record(_token_id=_tokenID,
+                                 _type='buy_success',
+                                 _seller=sender,
+                                 _buyer=buyer,
+                                 _starting_price=token_price,
+                                 _final_price=token_price,
+                                 _end_time=self.now(),
+                                 _number_tokens=quantity)
+
+        self.PurchaseToken(sender, buyer, _tokenID)
+
 
     def _remove_buy_order_and_fix_index(self, _address: Address, _token_id: int, _token_index: int, _user_index: int):
         self._set_mp_buy_price(_token_id, _token_index, 0)
         self._set_mp_buy_quantity(_token_id, _token_index, 0)
 
+        last_index_tokenid = self._get_number_buy_orders_per_tokenid(_token_id) - 1
+        last_index_address = self._get_number_buy_orders_per_owner(_address) - 1
+
+        last_index_tokenid_to_address = self._get_buy_tokenid_index_to_address_indexing(_token_id, last_index_tokenid).split("_")
+        last_index_address_to_tokenid = self._get_buy_address_index_to_tokenid_index(_address, last_index_address).split("_")
+
         # Set Index Mapping
         self._remove_buy_tokenid_index_to_address_index(_token_id, _token_index)
+        self._remove_buy_tokenid_index_to_address_index(_token_id, last_index_tokenid)
         self._remove_buy_address_index_to_tokenid_index(_address, _user_index)
+        self._remove_buy_address_index_to_tokenid_index(_address, last_index_address)
+
+        #TODO Fix setting removed index to last index
+        if last_index_tokenid > 0:
+            self._set_buy_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _token_id, _token_index, last_index_tokenid_to_address[1])
+        
+        if last_index_address > 0:
+            self._set_buy_address_index_to_tokenid_index(_address, last_index_address_to_tokenid[0], last_index_address_to_tokenid[1], _user_index)
 
         # Decrease sell order count for tokenid and address
         self._decrease_number_buy_orders_per_tokenid(_token_id)

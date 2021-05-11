@@ -244,3 +244,34 @@ class TestMarketPlace(ScoreTestCase):
         self.assertEqual(self.score.list_own_buy_orders(), {0: [1, 100, 5], 
                                                           1: [2, 120, 10]})
     
+    def test_accept_buy_order(self):
+        # Mint Tokens User 1
+        self.set_msg(self.test_account1)
+        self.score.mint(1, 10, "1.json")
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 10)
+        self.score.mint(2, 20, "2.json")
+
+        # Create buy orders
+        self.set_msg(self.test_account2, 100)
+        self.score.create_buy_order(1, 100, 5)
+
+        self.set_msg(self.test_account2, 120)
+        self.score.create_buy_order(2, 120, 10)
+
+         # List buy order
+        self.assertEqual(self.score.list_own_buy_orders(), {0: [1, 100, 5], 
+                                                          1: [2, 120, 10]})
+
+        # Accept buy order
+        self.set_msg(self.test_account1)        
+        self.score.accept_buy_order(1, 0)
+
+        # List buy order
+        self.set_msg(self.test_account2)
+        self.assertEqual(self.score.list_own_buy_orders(), { 0: [2, 120, 10]})
+
+        self.assertEqual(self.score.balanceOf(self.test_account1, 1), 5)
+        self.assertEqual(self.score.balanceOf(self.test_account2, 1), 5)
+        self.assertEqual(self.score.balanceOf(self.test_account1, 2), 20)
+
+    
