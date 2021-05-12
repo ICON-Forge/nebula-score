@@ -715,22 +715,22 @@ class NebulaMultiToken(IconScoreBase):
     def create_sell_order(self,  _token_id: int, _price: int, _quantity: int):
         """
         Creates an sell order on the market place order.
-        Throws if sale is restricted or contract is paused. Throws when token is already listed.
-        Throws when sender does not own the token. Throws when starting price is not positive.
+        Throws if sale is restricted or contract is paused.
+        Throws when starting price is not positive.
+        Throws when sender does not own the token.
+        Throws when has too few unlisted tokens
         """
         sender = self.msg.sender
-        require(self._is_owner_of_token(sender, _token_id) == True, "Sender does not own the token.")
-        balance = self.balanceOf(sender, _token_id)
-        
+
+        # General Checks
         self._check_that_sale_is_not_restricted()
         self._check_that_contract_is_unpaused()
-
-        require(balance - self._get_listed_token_balance_by_owner(sender, _token_id) >= _quantity, "Number of tokens is less than available tokens.")
         self._check_that_price_is_positive(_price)
 
-        #self._increase_number_token_types_listed_by_owner(sender)
-        
-        #self._increase_current_index_by_tokenID(_tokenID)
+        # Balance and token checks
+        require(self._is_owner_of_token(sender, _token_id) == True, "Sender does not own the token.")
+        balance = self.balanceOf(sender, _token_id)
+        require(balance - self._get_listed_token_balance_by_owner(sender, _token_id) >= _quantity, "Number of tokens is less than available tokens.")
 
         # Get new indices
         _token_index = self._get_number_sell_orders_per_tokenid(_token_id)
@@ -774,13 +774,17 @@ class NebulaMultiToken(IconScoreBase):
     def list_own_sell_orders(self, offset: int=0) -> dict:
         """
         List all sell active sell orders for the sender.
+        Throws when offset is higher than the available sell orders.
         """
+        result_dict = {}
         sender = self.msg.sender
         num_sell_orders = self._get_number_sell_orders_per_owner(sender)
-        require(num_sell_orders > 0, "There is no sell order for that address.")
+
+        if num_sell_orders == 0:
+            return result_dict
+
         require(offset < num_sell_orders, "Offset is higher than available sell orders.")
 
-        result_dict = {}
         for i in range(0 + offset, min(offset + 100, num_sell_orders)):
             mapping = self._get_address_index_to_tokenid_index(sender, i).split("_") #tokenid_index
             price = self._get_mp_offer_price(int(mapping[0]), int(mapping[1]))
@@ -794,24 +798,25 @@ class NebulaMultiToken(IconScoreBase):
     def cancel_own_sell_order(self, _tokenID: int, _user_index: int):
         """
         Remove sell order.
+        Throws if sale is restricted or contract is paused.
         """
-        
         sender = self.msg.sender
 
-        # TODO more checks needed. The is owner check is not correct.
+        # General Checks
+        self._check_that_contract_is_unpaused()
+
+        # Check provided parameters
         require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
+        require(self._get_number_sell_orders_per_owner(sender) >= _user_index, "Provided user index is wrong.")
         
         mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
-        require(mapping[0] != _tokenID, "TokenID does not match stored tokenID")
+        require(int(mapping[0]) == _tokenID, "TokenID does not match stored tokenID")
 
-        # User       
+        # Get number of locked tokens      
         quantity = self._get_mp_offer_quantity(_tokenID, mapping[1]) * -1
         
-
-        token_index = self._get_address_index_to_tokenid_index(sender, _user_index)
-
         # Remove and fix Index Mapping
-        self._remove_sale_and_fix_index(sender, _tokenID, token_index, _user_index, quantity)
+        self._remove_sale_and_fix_index(sender, _tokenID, "_".join(mapping), _user_index, quantity)
 
         
 
@@ -823,8 +828,12 @@ class NebulaMultiToken(IconScoreBase):
         otherwise throws an error. When a correct amount is sent, the NFT will be sent from seller to buyer, and SCORE
         will send token's price worth of ICX to seller (minus fee, if applicable).
         """
+        # General Checks
         self._check_that_contract_is_unpaused()
 
+        buyer = self.msg.sender
+
+        # Price related checks
         if not self.msg.value > 0:
             revert(f'Sent ICX amount needs to be greater than 0')
         
@@ -832,16 +841,21 @@ class NebulaMultiToken(IconScoreBase):
         
         if self.msg.value != token_price:
             revert(f'Sent ICX amount ({self.msg.value}) does not match token price ({token_price})')
-
+        
+        # Get information about seller
         address_index = self._get_tokenid_index_to_address_indexing(_tokenID, _token_index).split("_")
         seller = Address.from_string(address_index[0])
+        require(seller != buyer, "The seller and buyer can't have the same address.")
+
         user_index = address_index[1]
-        buyer = self.msg.sender
         quantity = self._get_mp_offer_quantity(_tokenID, _token_index) 
 
+        # Clean up
         self._remove_sale_and_fix_index(seller, _tokenID, _token_index, user_index, quantity)
-        self._transfer(seller, buyer, _tokenID, quantity)
 
+        # Transfer icx and tokens
+        self._transfer(seller, buyer, _tokenID, quantity)
+        
         fee = self._calculate_seller_fee(token_price)
 
         self.icx.transfer(seller, int(token_price - fee))
