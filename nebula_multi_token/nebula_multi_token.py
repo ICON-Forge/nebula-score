@@ -13,11 +13,18 @@
 # limitations under the License.
 
 from iconservice import *
-from util import ZERO_ADDRESS, require
+#from util import ZERO_ADDRESS, require
 
 #from .irc31_receiver import IRC31ReceiverInterface
 #from ..util import ZERO_ADDRESS, require
 #from ..util.rlp import rlp_encode_list
+
+ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
+
+
+def require(condition: bool, message: str):
+    if not condition:
+        revert(message)
 
 
 class NebulaMultiToken(IconScoreBase):
@@ -296,14 +303,16 @@ class NebulaMultiToken(IconScoreBase):
         :param _value: the amount of transfer
         :param _data: additional data that should be sent unaltered in call to `_to`
         """
+        self._check_that_contract_is_unpaused()
         require(_to != ZERO_ADDRESS, "_to must be non-zero")
         require(_from == self.msg.sender or self.isApprovedForAll(_from, self.msg.sender),
                 "You don't have permission to transfer this NFT")
         require(0 <= _value <= self._owned_token_count_by_id[_from][_id], "Insufficient funds")
 
-        self._check_that_contract_is_unpaused()
-
-        self._check_that_token_is_not_auctioned(_id)
+        # Balance and token checks
+        require(self._is_owner_of_token(_from, _id) == True, "Sender does not own the token.")
+        balance = self.balanceOf(_from, _id)
+        require(balance - self._get_listed_token_balance_by_owner(_from, _id) >= _value, "Number of tokens is less than available tokens.")      
 
         self._transfer(_from, _to, _id, _value)
 
