@@ -6,18 +6,21 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
+# Unless self.required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import List
 
 from iconservice import *
-from util import ZERO_ADDRESS, require
 
-#from .irc31_receiver import IRC31ReceiverInterface
-#from ..util import ZERO_ADDRESS, require
-#from ..util.rlp import rlp_encode_list
+
+# from nebula_multi_token.util import ZERO_ADDRESS, self.require
+
+from .irc31_receiver import IRC31ReceiverInterface
+# from ..util import ZERO_ADDRESS, self.require
+# from ..util.rlp import rlp_encode_list
 
 
 class NebulaMultiToken(IconScoreBase):
@@ -26,46 +29,46 @@ class NebulaMultiToken(IconScoreBase):
 
     _TOTAL_SUPPLY = 'total_supply'  # Tracks total number of valid tokens (excluding ones with zero address)
     _TOTAL_SUPPLY_TOKEN = 'total_supply_token'  # Tracks total supply for each token (excluding ones with zero address)
-    #_LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
-    #_OWNER_LISTED_TOKEN_COUNT = 'owner_listed_count'  # Tracks number of listed tokens against token owners
-    #_OWNER_LISTED_TOKEN_BALANCE = 'owner_listed_balance'  # Tracks the balance of listed tokens by token owners
-    #_TOTAL_LISTED_TOKEN_COUNT = 'total_listed_count'  # Tracks total number of listed tokens
-    #_OWNER_LISTED_TOKENS_COUNT = 'owner_listed_count'  # Tracks number of listed token index against token owners
+    # _LISTED_TOKEN_PRICES = 'listed_token_prices'  # Tracks listed token prices against token IDs
+    # _OWNER_LISTED_TOKEN_COUNT = 'owner_listed_count'  # Tracks number of listed tokens against token owners
+    # _OWNER_LISTED_TOKEN_BALANCE = 'owner_listed_balance'  # Tracks the balance of listed tokens by token owners
+    # _TOTAL_LISTED_TOKEN_COUNT = 'total_listed_count'  # Tracks total number of listed tokens
+    # _OWNER_LISTED_TOKENS_COUNT = 'owner_listed_count'  # Tracks number of listed token index against token owners
     _DIRECTOR = 'director'  # Role responsible for assigning other roles.
     _TREASURER = 'treasurer'  # Role responsible for transferring money to and from the contract
     _MINTER = 'minter'  # Role responsible for minting and burning tokens
-    _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
-    _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
-    _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
-    _SELLER_FEE = 'seller_fee' # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
+    _IS_PAUSED = 'is_paused'  # Boolean value that indicates whether a contract is paused
+    _IS_RESTRICTED_SALE = 'is_restricted_sale'  # Boolean value that indicates if secondary token sales are restricted
+    _METADATA_BASE_URL = 'metadata_base_url'  # Base URL that is combined with provided token_URI when token gets minted
+    _SELLER_FEE = 'seller_fee'  # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
     _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
-    
+
     # Marketplace - Sell Order
-    _LISTED_TOKEN_BALANCE_BY_OWNER = "listed_token_balance_by_owner" #How many tokens of the same id are locked for each tokenid/address 
-    _LISTED_SALES_PER_TOKENID_BY_OWNER = "listed_sales_per_tokenid_by_owner" #How many sales per tokenid does an owner have 
-    _NUMBER_SALE_ORDERS_PER_TOKENID = "number_sale_orders_per_tokenid" #Keeps the number of active sale orders per token id
-    _MP_PRICE_LIST = "market_place_price_list" # Keeps the price for all active offers
-    _MP_QUANTITY_LIST = "market_place_quantity_list" # Keeps the quantity of tokens on sale for all active offers
-    _INDEX_MAPPING = "index_mapping" # Maps the global tokenID index with the user specifc index
-    #_LISTED_TOKEN_TYPES_BY_OWNER = "listed_token_types_by_owner" # Number of different token types listed by address
-    _NUMBER_SELL_ORDERS_BY_OWNER = "number_sell_orders_by_owner" # number of sell order listed by an address
-    _ADDRESS_INDEX_TO_TOKENID_INDEX = "address_index_to_tokenid_index" # Map the user sell order index to the tokenid sell order index
+    _LISTED_TOKEN_BALANCE_BY_OWNER = "listed_token_balance_by_owner"  # How many tokens of the same id are locked for each tokenid/address
+    _LISTED_SALES_PER_TOKENID_BY_OWNER = "listed_sales_per_tokenid_by_owner"  # How many sales per tokenid does an owner have
+    _NUMBER_SALE_ORDERS_PER_TOKENID = "number_sale_orders_per_tokenid"  # Keeps the number of active sale orders per token id
+    _MP_PRICE_LIST = "market_place_price_list"  # Keeps the price for all active offers
+    _MP_QUANTITY_LIST = "market_place_quantity_list"  # Keeps the quantity of tokens on sale for all active offers
+    _INDEX_MAPPING = "index_mapping"  # Maps the global tokenID index with the user specifc index
+    # _LISTED_TOKEN_TYPES_BY_OWNER = "listed_token_types_by_owner" # Number of different token types listed by address
+    _NUMBER_SELL_ORDERS_BY_OWNER = "number_sell_orders_by_owner"  # number of sell order listed by an address
+    _ADDRESS_INDEX_TO_TOKENID_INDEX = "address_index_to_tokenid_index"  # Map the user sell order index to the tokenid sell order index
 
     # Marketplace - Buy Order
-    _MP_BUY_PRICE_LIST = "market_place_buy_price_list" # Keeps the price for all active buy offers
-    _MP_BUY_QUANTITY_LIST = "market_place_buy_quantity_list" # Keeps the quantity of tokens on sale for all active offers
-    _NUMBER_BUY_ORDERS_PER_TOKENID = "number_buy_orders_per_tokenid" #Keeps the number of active buy orders per token id
-    _NUMBER_BUY_ORDERS_BY_OWNER = "number_buy_orders_by_owner" # number of buy orders listed by an address 
-    _LISTED_PURCHASES_PER_TOKENID_BY_OWNER = "listed_purchases_per_tokenid_by_owner" #How many purchase offers per tokenid does an owner have
-    _INDEX_MAPPING_PURCHASE = "index_mapping_purchase" # Maps the global tokenID index with the user specifc index for buy orders
-    _ADDRESS_INDEX_TO_TOKENID_INDEX_PURCHASE = "address_index_to_tokenid_index_purchase" # Map the user sell order index to the tokenid sell order index for buy orders
+    _MP_BUY_PRICE_LIST = "market_place_buy_price_list"  # Keeps the price for all active buy offers
+    _MP_BUY_QUANTITY_LIST = "market_place_buy_quantity_list"  # Keeps the quantity of tokens on sale for all active offers
+    _NUMBER_BUY_ORDERS_PER_TOKENID = "number_buy_orders_per_tokenid"  # Keeps the number of active buy orders per token id
+    _NUMBER_BUY_ORDERS_BY_OWNER = "number_buy_orders_by_owner"  # number of buy orders listed by an address
+    _LISTED_PURCHASES_PER_TOKENID_BY_OWNER = "listed_purchases_per_tokenid_by_owner"  # How many purchase offers per tokenid does an owner have
+    _INDEX_MAPPING_PURCHASE = "index_mapping_purchase"  # Maps the global tokenID index with the user specifc index for buy orders
+    _ADDRESS_INDEX_TO_TOKENID_INDEX_PURCHASE = "address_index_to_tokenid_index_purchase"  # Map the user sell order index to the tokenid sell order index for buy orders
 
     def __init__(self, db: 'IconScoreDatabase') -> None:
         super().__init__(db)
         # id => (owner => balance)
-        self._owned_token_count = DictDB(self._OWNED_TOKEN_COUNT, db, value_type=int) #[address]->count
-        self._owned_token_count_by_id = DictDB(self._OWNED_TOKEN_COUNT_BY_ID, db, value_type=int, depth=2) #[address][tokenID]->count
-
+        self._owned_token_count = DictDB(self._OWNED_TOKEN_COUNT, db, value_type=int)  # [address]->count
+        self._owned_token_count_by_id = DictDB(self._OWNED_TOKEN_COUNT_BY_ID, db, value_type=int,
+                                               depth=2)  # [address][tokenID]->count
 
         # owner => (operator => approved)
         self._operatorApproval = DictDB('approval', db, value_type=bool, depth=2)
@@ -75,13 +78,13 @@ class NebulaMultiToken(IconScoreBase):
         self._total_supply_per_token = DictDB(self._TOTAL_SUPPLY_TOKEN, db, value_type=int)
         self._tokenNames = DictDB('token_name', db, value_type=str)
         self._tokenSymbol = DictDB('token_symbol', db, value_type=str)
-        #self._total_listed_token_count = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
-        #self._owner_listed_token_count = DictDB(self._OWNER_LISTED_TOKEN_COUNT, db, value_type=int)
-        #self._owner_listed_token_balance = DictDB(self._OWNER_LISTED_TOKEN_BALANCE, db, value_type=int, depth=2) # [address][tokenID]
-        #self._owner_listed_tokens_count = DictDB(self._OWNER_LISTED_TOKENS_COUNT, db, value_type=int, depth=2) # [address][tokenID]
+        # self._total_listed_token_count = VarDB(self._TOTAL_LISTED_TOKEN_COUNT, db, value_type=int)
+        # self._owner_listed_token_count = DictDB(self._OWNER_LISTED_TOKEN_COUNT, db, value_type=int)
+        # self._owner_listed_token_balance = DictDB(self._OWNER_LISTED_TOKEN_BALANCE, db, value_type=int, depth=2) # [address][tokenID]
+        # self._owner_listed_tokens_count = DictDB(self._OWNER_LISTED_TOKENS_COUNT, db, value_type=int, depth=2) # [address][tokenID]
         self._is_paused = VarDB(self._IS_PAUSED, db, value_type=bool)
         self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
-        #self._listed_token_prices = DictDB(self._LISTED_TOKEN_PRICES, db, value_type=int, depth=2) # [address][tokenID]
+        # self._listed_token_prices = DictDB(self._LISTED_TOKEN_PRICES, db, value_type=int, depth=2) # [address][tokenID]
         self._director = VarDB(self._DIRECTOR, db, value_type=Address)
         self._treasurer = VarDB(self._TREASURER, db, value_type=Address)
         self._minter = VarDB(self._MINTER, db, value_type=Address)
@@ -92,26 +95,41 @@ class NebulaMultiToken(IconScoreBase):
         self._seller_fee = VarDB(self._SELLER_FEE, db, value_type=int)
 
         # Marketplace - Sell Order
-        self._listed_token_balance_by_owner = DictDB(self._LISTED_TOKEN_BALANCE_BY_OWNER, db, value_type=int, depth=2)# [address][tokenID]
-        self._listed_sales_per_tokenid_by_owner = DictDB(self._LISTED_SALES_PER_TOKENID_BY_OWNER, db, value_type=int, depth=2)# [address][tokenID]
-        self._number_sale_orders_per_tokenid = DictDB(self._NUMBER_SALE_ORDERS_PER_TOKENID, db, value_type=int)# [tokenID]
-        self._mp_price_list = DictDB(self._MP_PRICE_LIST, db, value_type=int, depth=2) # [tokenID][index]
-        self._mp_quantity_list = DictDB(self._MP_QUANTITY_LIST, db, value_type=int, depth=2) # [tokenID][index]
-        self._index_mapping = DictDB(self._INDEX_MAPPING, db, value_type=str) # [tokenID_index] = [address_tokenID_index]
-        #self._listed_token_types_by_owner = DictDB(self._LISTED_TOKEN_TYPES_BY_OWNER, db, value_type=int) #[address]
-        self._number_sell_orders_per_owner = DictDB(self._NUMBER_SELL_ORDERS_BY_OWNER, db, value_type=int) #[address]
-        self._address_index_to_tokenid_index = DictDB(self._ADDRESS_INDEX_TO_TOKENID_INDEX, db, value_type=str) #[address_index]->[tokenID_index]
+        self._listed_token_balance_by_owner = DictDB(self._LISTED_TOKEN_BALANCE_BY_OWNER, db, value_type=int,
+                                                     depth=2)  # [address][tokenID]
+        self._listed_sales_per_tokenid_by_owner = DictDB(self._LISTED_SALES_PER_TOKENID_BY_OWNER, db, value_type=int,
+                                                         depth=2)  # [address][tokenID]
+        self._number_sale_orders_per_tokenid = DictDB(self._NUMBER_SALE_ORDERS_PER_TOKENID, db,
+                                                      value_type=int)  # [tokenID]
+        self._mp_price_list = DictDB(self._MP_PRICE_LIST, db, value_type=int, depth=2)  # [tokenID][index]
+        self._mp_quantity_list = DictDB(self._MP_QUANTITY_LIST, db, value_type=int, depth=2)  # [tokenID][index]
+        self._index_mapping = DictDB(self._INDEX_MAPPING, db,
+                                     value_type=str)  # [tokenID_index] = [address_tokenID_index]
+        # self._listed_token_types_by_owner = DictDB(self._LISTED_TOKEN_TYPES_BY_OWNER, db, value_type=int) #[address]
+        self._number_sell_orders_per_owner = DictDB(self._NUMBER_SELL_ORDERS_BY_OWNER, db, value_type=int)  # [address]
+        self._address_index_to_tokenid_index = DictDB(self._ADDRESS_INDEX_TO_TOKENID_INDEX, db,
+                                                      value_type=str)  # [address_index]->[tokenID_index]
 
         # Marketplace - Buy Order
-        self._mp_buy_price_list = DictDB(self._MP_BUY_PRICE_LIST, db, value_type=int, depth=2) # [tokenID][index]
-        self._mp_buy_quantity_list = DictDB(self._MP_BUY_QUANTITY_LIST, db, value_type=int, depth=2) # [tokenID][index]
-        self._number_buy_orders_per_tokenid = DictDB(self._NUMBER_BUY_ORDERS_PER_TOKENID, db, value_type=int)# [tokenID]
-        self._number_buy_orders_per_owner = DictDB(self._NUMBER_BUY_ORDERS_BY_OWNER, db, value_type=int) #[address]
-        self._listed_purchases_per_tokenid_by_owner = DictDB(self._LISTED_PURCHASES_PER_TOKENID_BY_OWNER, db, value_type=int, depth=2)# [address][tokenID]
-        self._index_mapping_purchase = DictDB(self._INDEX_MAPPING_PURCHASE, db, value_type=str) # [tokenID_index] = [address_tokenID_index]
-        self._address_index_to_tokenid_index_purchase = DictDB(self._ADDRESS_INDEX_TO_TOKENID_INDEX_PURCHASE, db, value_type=str) #[address_index]->[tokenID_index]
-        
+        self._mp_buy_price_list = DictDB(self._MP_BUY_PRICE_LIST, db, value_type=int, depth=2)  # [tokenID][index]
+        self._mp_buy_quantity_list = DictDB(self._MP_BUY_QUANTITY_LIST, db, value_type=int, depth=2)  # [tokenID][index]
+        self._number_buy_orders_per_tokenid = DictDB(self._NUMBER_BUY_ORDERS_PER_TOKENID, db,
+                                                     value_type=int)  # [tokenID]
+        self._number_buy_orders_per_owner = DictDB(self._NUMBER_BUY_ORDERS_BY_OWNER, db, value_type=int)  # [address]
+        self._listed_purchases_per_tokenid_by_owner = DictDB(self._LISTED_PURCHASES_PER_TOKENID_BY_OWNER, db,
+                                                             value_type=int, depth=2)  # [address][tokenID]
+        self._index_mapping_purchase = DictDB(self._INDEX_MAPPING_PURCHASE, db,
+                                              value_type=str)  # [tokenID_index] = [address_tokenID_index]
+        self._address_index_to_tokenid_index_purchase = DictDB(self._ADDRESS_INDEX_TO_TOKENID_INDEX_PURCHASE, db,
+                                                               value_type=str)  # [address_index]->[tokenID_index]
+
         self._db = db
+
+    ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
+
+    def require(condition: bool, message: str):
+        if not condition:
+            revert(message)
 
     def on_install(self) -> None:
         super().on_install()
@@ -121,7 +139,7 @@ class NebulaMultiToken(IconScoreBase):
         self._is_paused.set(False)
         self._is_restricted_sale.set(False)
         self._metadataBaseURL.set('')
-        self._seller_fee.set(0) # equals 2.5%
+        self._seller_fee.set(0)  # equals 2.5%
 
     def on_update(self) -> None:
         super().on_update()
@@ -134,7 +152,7 @@ class NebulaMultiToken(IconScoreBase):
         :return: the Name string
         """
         return self._tokenNames[_id]
-    
+
     @external(readonly=True)
     def tokenSymbol(self, _id: int) -> str:
         """
@@ -236,7 +254,7 @@ class NebulaMultiToken(IconScoreBase):
         :param _ids: IDs of the tokens
         :return: the list of balance (i.e. balance for each owner/id pair)
         """
-        require(len(_owners) == len(_ids), "owner/id pairs mismatch")
+        self.require(len(_owners) == len(_ids), "owner/id pairs mismatch")
 
         balances = []
         for i in range(len(_owners)):
@@ -251,23 +269,24 @@ class NebulaMultiToken(IconScoreBase):
         is the current owner. Throws if _to is the zero address.
         Throws if _tokenId is not a valid NFT.
         """
-        _from =  self.msg.sender
+        _from = self.msg.sender
 
-        require(0 <= _value <= self._owned_token_count_by_id[_from][_tokenId], "Insufficient funds")
+        self.require(0 <= _value <= self._owned_token_count_by_id[_from][_tokenId], "Insufficient funds")
 
         self._check_that_contract_is_unpaused()
 
         # Check that tokens are not locked in a sell order
         balance = self.balanceOf(_from, _tokenId)
-        require(balance - self._get_listed_token_balance_by_owner(_from, _tokenId) >= _value, "Number of tokens is less than available tokens.")
-       
+        self.require(balance - self._get_listed_token_balance_by_owner(_from, _tokenId) >= _value,
+                     "Number of tokens is less than available tokens.")
+
         self._transfer(self.msg.sender, _to, _tokenId, _value)
 
     def _transfer(self, _from: Address, _to: Address, _token_id: int, _value: int):
-        require(_to != ZERO_ADDRESS, "You can't transfer to a zero address")
+        self.require(_to != self.ZERO_ADDRESS, "You can't transfer to a zero address")
 
-        #self._clear_approval(_token_id)
-        #if self.get_token_price(_token_id):
+        # self._clear_approval(_token_id)
+        # if self.get_token_price(_token_id):
         #    self._delist_token(_from, _token_id)
         self._remove_tokens_from(_from, _token_id, _value)
         self._add_tokens_to(_to, _token_id, _value)
@@ -296,10 +315,10 @@ class NebulaMultiToken(IconScoreBase):
         :param _value: the amount of transfer
         :param _data: additional data that should be sent unaltered in call to `_to`
         """
-        require(_to != ZERO_ADDRESS, "_to must be non-zero")
-        require(_from == self.msg.sender or self.isApprovedForAll(_from, self.msg.sender),
-                "You don't have permission to transfer this NFT")
-        require(0 <= _value <= self._owned_token_count_by_id[_from][_id], "Insufficient funds")
+        self.require(_to != self.ZERO_ADDRESS, "_to must be non-zero")
+        self.require(_from == self.msg.sender or self.isApprovedForAll(_from, self.msg.sender),
+                     "You don't have permission to transfer this NFT")
+        self.require(0 <= _value <= self._owned_token_count_by_id[_from][_id], "Insufficient funds")
 
         self._check_that_contract_is_unpaused()
 
@@ -312,7 +331,7 @@ class NebulaMultiToken(IconScoreBase):
             recipient_score = self.create_interface_score(_to, IRC31ReceiverInterface)
             recipient_score.onIRC31Received(self.msg.sender, _from, _id, _value,
                                             b'' if _data is None else _data)
-    
+
     @eventlog(indexed=3)
     def TransferSingle(self, _operator: Address, _from: Address, _to: Address, _id: int, _value: int):
         """
@@ -328,18 +347,17 @@ class NebulaMultiToken(IconScoreBase):
         """
         pass
 
-
     @external
     def mint(self, _id: int, _supply: int, _uri: str):
         """
         Creates a new token type and assigns _initialSupply to creator
         """
-        #self._ensure_positive(_id)
+        # self._ensure_positive(_id)
         if self._minter.get() != self.msg.sender:
             revert('You are not allowed to mint tokens')
-        require(self._minters[_id] is None, "Token is already minted")
-        require(_supply > 0, "Supply should be positive")
-        require(len(_uri) > 0, "Uri should be set")
+        self.require(self._minters[_id] is None, "Token is already minted")
+        self.require(_supply > 0, "Supply should be positive")
+        self.require(len(_uri) > 0, "Uri should be set")
 
         self._minters[_id] = self.msg.sender
         self._mint(self.msg.sender, _id, _supply, _uri)
@@ -352,9 +370,9 @@ class NebulaMultiToken(IconScoreBase):
         self._ensure_positive(_id)
         if self._minter.get() != self.msg.sender:
             revert('You are not allowed to mint tokens')
-        require(self._minters[_id] is None, "Token is already minted")
-        require(_supply > 0, "Supply should be positive")
-        require(len(_uri) > 0, "Uri should be set")
+        self.require(self._minters[_id] is None, "Token is already minted")
+        self.require(_supply > 0, "Supply should be positive")
+        self.require(len(_uri) > 0, "Uri should be set")
 
         self._minters[_id] = _to
         self._mint(_to, _id, _supply, _uri)
@@ -403,7 +421,7 @@ class NebulaMultiToken(IconScoreBase):
         self._burn(_token_id, _value)
 
     def _burn(self, _token_id: int, _value: int):
-        #TODO Skipped approvals for the moment
+        # TODO Skipped approvals for the moment
         # self._clear_approval(_token_id)
 
         # TODO What is the price needed for?
@@ -417,15 +435,12 @@ class NebulaMultiToken(IconScoreBase):
         # tokenIndex = self._get_token_index_by_token_id(_token_id)
         # self._adjust_token_index(tokenIndex)
 
-        
-
-        self.TransferSingle(self.msg.sender, ZERO_ADDRESS, _token_id, _value)
+        self.TransferSingle(self.msg.sender, self.ZERO_ADDRESS, _token_id, _value)
 
     # @external(readonly=True)
     # def get_token_price(self, _tokenId: int) -> int:
     #     """ Returns price the token is being sold for. """
     #     return self._listed_token_prices[str(_tokenId)]
-
 
     # ===============================================================================================
     # Internal methods
@@ -449,7 +464,7 @@ class NebulaMultiToken(IconScoreBase):
         :param _value: the amount of transfer
         """
         pass
-    
+
     @eventlog(indexed=1)
     def URI(self, _id: int, _value: str):
         """
@@ -471,11 +486,11 @@ class NebulaMultiToken(IconScoreBase):
         self._total_supply_per_token[_id] = _supply
 
         self._setTokenURI(_id, _uri)
-        
+
         self._create_new_token_index(_id)
         # emit transfer event for Mint semantic
-        self.TransferSingle(_owner, ZERO_ADDRESS, _owner, _id, _supply)
-    
+        self.TransferSingle(_owner, self.ZERO_ADDRESS, _owner, _id, _supply)
+
     def _setTokenURI(self, _id: int, _uri: str):
         self._token_URIs[_id] = _uri
         self.URI(_id, _uri)
@@ -489,26 +504,26 @@ class NebulaMultiToken(IconScoreBase):
 
     def _is_zero_address(self, _address: Address) -> bool:
         # Check if address is zero address
-        if _address == ZERO_ADDRESS:
+        if _address == self.ZERO_ADDRESS:
             return True
         return False
-    
+
     def _check_that_contract_is_unpaused(self):
         if self._is_paused.get() and not self.msg.sender == self._minter.get():
             revert("Contract is currently paused")
-    
+
     def _is_owner_of_token(self, _from, _tokenId) -> bool:
         if self._owned_token_count_by_id[_from][_tokenId] > 0:
             return True
         else:
             False
-    
+
     def _get_number_of_token_classes_owned(self, _address: Address) -> int:
         return self._owned_token_count[_address]
 
     def _add_number_of_token_classes_owned(self, _address: Address, _value: int):
         self._owned_token_count[_address] += _value
-    
+
     def _remove_number_of_token_classes_owned(self, _address: Address, _value: int):
         self._owned_token_count[_address] -= _value
 
@@ -533,7 +548,7 @@ class NebulaMultiToken(IconScoreBase):
         baseURL = self._metadataBaseURL.get()
 
         return baseURL + token_URI
-    
+
     @external
     def set_token_URI(self, _token_id: int, _token_URI: str):
         """
@@ -596,7 +611,7 @@ class NebulaMultiToken(IconScoreBase):
         Returns total number of different tokens.
         """
         return self._total_number_tokens.get()
-    
+
     @external(readonly=True)
     def totalSupplyPerToken(self, _token_id) -> int:
         """
@@ -606,7 +621,7 @@ class NebulaMultiToken(IconScoreBase):
 
     def _add_tokens_to(self, _to: Address, _token_id: int, _value: int):
         # Add token to new owner and increase token count of owner by 1
-        #self._token_owner[_token_id] = _to
+        # self._token_owner[_token_id] = _to
         self._add_number_of_token_classes_owned(_to, 1)
         self._owned_token_count_by_id[_to][_token_id] += _value
 
@@ -619,10 +634,10 @@ class NebulaMultiToken(IconScoreBase):
         token_balance = self.balanceOf(_from, _token_id)
         last_index = self.balanceOfTokenClasses(_from)
 
-        require(token_balance > 0, "The token balance is not correct.")
+        self.require(token_balance > 0, "The token balance is not correct.")
 
         self._owned_token_count_by_id[_from][_token_id] = token_balance - _value
-        
+
         if (token_balance - _value) == 0:
             # TODO Shouldn't this work -> self._owned_token_count_by_id[_from][_token_id].remove()
             self._owned_token_count_by_id[_from][_token_id] = token_balance - _value
@@ -634,8 +649,8 @@ class NebulaMultiToken(IconScoreBase):
 
             # Remove token ownership and subtract owner's token count by 1
             self._remove_number_of_token_classes_owned(_from, 1)
-            #TODO self._token_owner[_token_id] = self._ZERO_ADDRESS
-    
+            # TODO self._token_owner[_token_id] = self._ZERO_ADDRESS
+
     @external(readonly=True)
     def tokenByIndex(self, _index: int) -> int:
         """
@@ -712,7 +727,7 @@ class NebulaMultiToken(IconScoreBase):
     # ================================================
 
     @external
-    def create_sell_order(self,  _token_id: int, _price: int, _quantity: int):
+    def create_sell_order(self, _token_id: int, _price: int, _quantity: int):
         """
         Creates an sell order on the market place order.
         Throws if sale is restricted or contract is paused.
@@ -728,9 +743,10 @@ class NebulaMultiToken(IconScoreBase):
         self._check_that_price_is_positive(_price)
 
         # Balance and token checks
-        require(self._is_owner_of_token(sender, _token_id) == True, "Sender does not own the token.")
+        self.require(self._is_owner_of_token(sender, _token_id) == True, "Sender does not own the token.")
         balance = self.balanceOf(sender, _token_id)
-        require(balance - self._get_listed_token_balance_by_owner(sender, _token_id) >= _quantity, "Number of tokens is less than available tokens.")
+        self.require(balance - self._get_listed_token_balance_by_owner(sender, _token_id) >= _quantity,
+                     "Number of tokens is less than available tokens.")
 
         # Get new indices
         _token_index = self._get_number_sell_orders_per_tokenid(_token_id)
@@ -751,15 +767,15 @@ class NebulaMultiToken(IconScoreBase):
         self._increase_number_sell_orders_per_tokenid(_token_id)
         self._increase_number_sell_orders_per_owner(sender)
         self._increase_listed_sales_per_tokenID_by_owner(sender, _token_id)
-    
+
     @external
-    def list_sell_orders(self,  _token_id: int, offset: int=0) -> dict:
+    def list_sell_orders(self, _token_id: int, offset: int = 0) -> dict:
         """
         List all sell orders for a specific token id.
         Throws when offset is higher than the available sell orders.
         """
         num_sell_orders = self._get_number_sell_orders_per_tokenid(_token_id)
-        require(offset < num_sell_orders, "Offset is higher than available sell orders.")
+        self.require(offset < num_sell_orders, "Offset is higher than available sell orders.")
 
         result_dict = {}
         for i in range(0 + offset, min(offset + 100, num_sell_orders)):
@@ -769,9 +785,9 @@ class NebulaMultiToken(IconScoreBase):
             result_dict[i] = [price, quantity, address]
 
         return result_dict
-    
+
     @external
-    def list_own_sell_orders(self, offset: int=0) -> dict:
+    def list_own_sell_orders(self, offset: int = 0) -> dict:
         """
         List all sell active sell orders for the sender.
         Throws when offset is higher than the available sell orders.
@@ -783,17 +799,17 @@ class NebulaMultiToken(IconScoreBase):
         if num_sell_orders == 0:
             return result_dict
 
-        require(offset < num_sell_orders, "Offset is higher than available sell orders.")
+        self.require(offset < num_sell_orders, "Offset is higher than available sell orders.")
 
         for i in range(0 + offset, min(offset + 100, num_sell_orders)):
-            mapping = self._get_address_index_to_tokenid_index(sender, i).split("_") #tokenid_index
+            mapping = self._get_address_index_to_tokenid_index(sender, i).split("_")  # tokenid_index
             price = self._get_mp_offer_price(int(mapping[0]), int(mapping[1]))
             quantity = self._get_mp_offer_quantity(int(mapping[0]), int(mapping[1]))
-        
+
             result_dict[i] = [int(mapping[0]), price, quantity]
 
         return result_dict
-    
+
     @external
     def cancel_own_sell_order(self, _tokenID: int, _user_index: int):
         """
@@ -806,19 +822,17 @@ class NebulaMultiToken(IconScoreBase):
         self._check_that_contract_is_unpaused()
 
         # Check provided parameters
-        require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
-        require(self._get_number_sell_orders_per_owner(sender) >= _user_index, "Provided user index is wrong.")
-        
-        mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
-        require(int(mapping[0]) == _tokenID, "TokenID does not match stored tokenID")
+        self.require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
+        self.require(self._get_number_sell_orders_per_owner(sender) >= _user_index, "Provided user index is wrong.")
 
-        # Get number of locked tokens      
+        mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_")  # tokenid_index
+        self.require(int(mapping[0]) == _tokenID, "TokenID does not match stored tokenID")
+
+        # Get number of locked tokens
         quantity = self._get_mp_offer_quantity(_tokenID, mapping[1]) * -1
-        
+
         # Remove and fix Index Mapping
         self._remove_sale_and_fix_index(sender, _tokenID, "_".join(mapping), _user_index, quantity)
-
-        
 
     @external
     @payable
@@ -836,26 +850,26 @@ class NebulaMultiToken(IconScoreBase):
         # Price related checks
         if not self.msg.value > 0:
             revert(f'Sent ICX amount needs to be greater than 0')
-        
+
         token_price = self._get_mp_offer_price(_tokenID, _token_index)
-        
+
         if self.msg.value != token_price:
             revert(f'Sent ICX amount ({self.msg.value}) does not match token price ({token_price})')
-        
+
         # Get information about seller
         address_index = self._get_tokenid_index_to_address_indexing(_tokenID, _token_index).split("_")
         seller = Address.from_string(address_index[0])
-        require(seller != buyer, "The seller and buyer can't have the same address.")
+        self.require(seller != buyer, "The seller and buyer can't have the same address.")
 
         user_index = address_index[1]
-        quantity = self._get_mp_offer_quantity(_tokenID, _token_index) 
+        quantity = self._get_mp_offer_quantity(_tokenID, _token_index)
 
         # Clean up
         self._remove_sale_and_fix_index(seller, _tokenID, _token_index, user_index, quantity)
 
         # Transfer icx and tokens
         self._transfer(seller, buyer, _tokenID, quantity)
-        
+
         fee = self._calculate_seller_fee(token_price)
 
         self.icx.transfer(seller, int(token_price - fee))
@@ -873,26 +887,30 @@ class NebulaMultiToken(IconScoreBase):
 
         self.PurchaseToken(seller, buyer, _tokenID)
 
-
-    def _remove_sale_and_fix_index(self, _address: Address, _tokenID: int, _token_index: int, _user_index: int, _quantity: int):
+    def _remove_sale_and_fix_index(self, _address: Address, _tokenID: int, _token_index: int, _user_index: int,
+                                   _quantity: int):
         self._set_listed_token_balance_by_owner(_address, _tokenID, _quantity)
         last_index_tokenid = self._get_number_sell_orders_per_tokenid(_tokenID)
         last_index_address = self._get_number_sell_orders_per_owner(_address)
 
-        last_index_tokenid_to_address = self._get_tokenid_index_to_address_indexing(_tokenID, last_index_tokenid).split("_")
-        last_index_address_to_tokenid = self._get_address_index_to_tokenid_index(_address, last_index_address).split("_")
+        last_index_tokenid_to_address = self._get_tokenid_index_to_address_indexing(_tokenID, last_index_tokenid).split(
+            "_")
+        last_index_address_to_tokenid = self._get_address_index_to_tokenid_index(_address, last_index_address).split(
+            "_")
 
         self._remove_tokenid_index_to_address_index(_tokenID, _token_index)
         self._remove_tokenid_index_to_address_index(_tokenID, last_index_tokenid)
 
         self._remove_address_index_to_tokenid_index(_address, _user_index)
         self._remove_address_index_to_tokenid_index(_address, last_index_address)
-        #TODO Fix setting removed index to last index
+        # TODO Fix setting removed index to last index
         if last_index_tokenid > 1:
-            self._set_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _tokenID, _token_index, last_index_tokenid_to_address[1])
-        
+            self._set_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _tokenID, _token_index,
+                                                     last_index_tokenid_to_address[1])
+
         if last_index_address > 1:
-            self._set_address_index_to_tokenid_index(_address, last_index_address_to_tokenid[0], last_index_address_to_tokenid[1], _user_index)
+            self._set_address_index_to_tokenid_index(_address, last_index_address_to_tokenid[0],
+                                                     last_index_address_to_tokenid[1], _user_index)
 
         # Decrease sell order count for tokenid and address
         self._decrease_number_sell_orders_per_tokenid(_tokenID)
@@ -901,72 +919,75 @@ class NebulaMultiToken(IconScoreBase):
         self._set_mp_offer_price(_tokenID, _token_index, 0)
         self._set_mp_offer_quantity(_tokenID, _token_index, 0)
 
-    def _set_tokenid_index_to_address_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
+    def _set_tokenid_index_to_address_index(self, _address: Address, _tokenID: int, _token_index: int,
+                                            _user_token_index: int):
         self._index_mapping[str(_tokenID) + "_" + str(_token_index)] = str(_address) + "_" + str(_user_token_index)
-    
+
     def _remove_tokenid_index_to_address_index(self, _tokenID: int, _token_index: int):
         self._index_mapping[str(_tokenID) + "_" + str(_token_index)] = ""
 
     def _get_tokenid_index_to_address_indexing(self, _tokenID: int, _token_index: int) -> str:
         return self._index_mapping[str(_tokenID) + "_" + str(_token_index)]
 
-    def _set_address_index_to_tokenid_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
-        self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)] = str(_tokenID) + "_" + str(_token_index)
-    
+    def _set_address_index_to_tokenid_index(self, _address: Address, _tokenID: int, _token_index: int,
+                                            _user_token_index: int):
+        self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)] = str(_tokenID) + "_" + str(
+            _token_index)
+
     def _remove_address_index_to_tokenid_index(self, _address: Address, _user_token_index: int):
         self._address_index_to_tokenid_index[str(_address) + "_" + str(_user_token_index)] = ""
-    
+
     def _get_address_index_to_tokenid_index(self, _address: Address, _index: int) -> str:
         return self._address_index_to_tokenid_index[str(_address) + "_" + str(_index)]
-    
+
     def _increase_number_sell_orders_per_owner(self, _address: Address):
         self._number_sell_orders_per_owner[_address] += 1
-    
+
     def _decrease_number_sell_orders_per_owner(self, _address: Address):
         self._number_sell_orders_per_owner[_address] -= 1
-    
+
     def _get_number_sell_orders_per_owner(self, _address: Address) -> int:
         return self._number_sell_orders_per_owner[_address]
 
-    #def _increase_number_token_types_listed_by_owner(self, _address: Address):
+    # def _increase_number_token_types_listed_by_owner(self, _address: Address):
     #    self._listed_token_types_by_owner[_address] += 1
-    
-    #def _increase_number_token_types_listed_by_owner(self, _address: Address):
+
+    # def _increase_number_token_types_listed_by_owner(self, _address: Address):
     #    self._listed_token_types_by_owner[_address] -= 1
-    
-    #def _get_number_token_types_listed_by_owner(self, _address: Address) -> int:
+
+    # def _get_number_token_types_listed_by_owner(self, _address: Address) -> int:
     #    return self._listed_token_types_by_owner[_address]
-        
+
     def _increase_number_sell_orders_per_tokenid(self, _tokenID: int):
         self._number_sale_orders_per_tokenid[_tokenID] += 1
-    
+
     def _decrease_number_sell_orders_per_tokenid(self, _tokenID: int):
         self._number_sale_orders_per_tokenid[_tokenID] -= 1
-    
+
     def _get_number_sell_orders_per_tokenid(self, _tokenID: int) -> int:
         return self._number_sale_orders_per_tokenid[_tokenID]
 
     def _set_listed_token_balance_by_owner(self, _address: Address, _tokenID: int, _quantitiy: int):
         self._listed_token_balance_by_owner[_address][_tokenID] += _quantitiy
-    
+
     def _get_listed_token_balance_by_owner(self, _address: Address, _tokenID: int) -> int:
         return self._listed_token_balance_by_owner[_address][_tokenID]
 
     def _increase_listed_sales_per_tokenID_by_owner(self, _address: Address, _tokenID: int):
         self._listed_sales_per_tokenid_by_owner[_address][_tokenID] += 1
-    
+
     def _decrease_listed_sales_per_tokenID_by_owner(self, _address: Address, _tokenID: int):
         self._listed_sales_per_tokenid_by_owner[_address][_tokenID] -= 1
-    
+
     def _get_listed_sales_per_tokenID_by_owner(self, _address: Address, _tokenID: int):
         return self._listed_sales_per_tokenid_by_owner[_address][_tokenID]
-    
+
     def _set_mp_offer_price(self, _tokenID: int, _index: int, _price: int):
         self._mp_price_list[_tokenID][_index] = _price
 
     def _get_mp_offer_price(self, _tokenID: int, _index: int):
         return self._mp_price_list[_tokenID][_index]
-    
+
     def _set_mp_offer_quantity(self, _tokenID: int, _index: int, _quantity: int):
         self._mp_quantity_list[_tokenID][_index] = _quantity
 
@@ -991,12 +1012,12 @@ class NebulaMultiToken(IconScoreBase):
 
         if not self.msg.value > 0:
             revert(f'Sent ICX amount needs to be greater than 0')
-        
+
         if self.msg.value != _price:
-            revert(f'Sent ICX amount ({self.msg.value}) does not match offer price ({token_price})')
+            revert(f'Sent ICX amount ({self.msg.value}) does not match offer price ({self.token_price})')
 
         sender = self.msg.sender
-        
+
         # Get new indices
         _token_index = self._get_number_buy_orders_per_tokenid(_token_id)
         _user_token_index = self._get_number_buy_orders_per_owner(sender)
@@ -1013,22 +1034,22 @@ class NebulaMultiToken(IconScoreBase):
         self._increase_number_buy_orders_per_tokenid(_token_id)
         self._increase_number_buy_orders_per_owner(sender)
         self._increase_listed_purchases_per_tokenID_by_owner(sender, _token_id)
-    
+
     @external
     def cancel_own_buy_order(self, _tokenID: int, _user_index: int):
         """
         Remove buy order.
         """
-        
+
         sender = self.msg.sender
         tokenID_index = self._get_buy_address_index_to_tokenid_index(sender, _user_index)
         token_index = int(tokenID_index.split("_")[1])
-        require(tokenID_index.split("_")[0] != _tokenID, "TokenID does not match stored tokenID")
+        self.require(tokenID_index.split("_")[0] != _tokenID, "TokenID does not match stored tokenID")
         # TODO if it returns 0 in case it is wrong.
-        #require(tokenID_index != 0, "Sender does not have a buy order with the provided id.")
+        # self.require(tokenID_index != 0, "Sender does not have a buy order with the provided id.")
 
-        # User       
-        #mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
+        # User
+        # mapping = self._get_address_index_to_tokenid_index(sender, _user_index).split("_") #tokenid_index
         price = self._get_mp_buy_price(_tokenID, token_index)
 
         # Remove and fix Index Mapping
@@ -1037,15 +1058,15 @@ class NebulaMultiToken(IconScoreBase):
         # Send the icx back
         # TODO remove fee
         self.icx.transfer(sender, price)
-    
+
     @external
-    def list_buy_orders(self,  _token_id: int, offset: int=0) -> dict:
+    def list_buy_orders(self, _token_id: int, offset: int = 0) -> dict:
         """
         List all buy orders for a specific token id.
         Throws when offset is higher than the available buy orders.
         """
         num_buy_orders = self._get_number_buy_orders_per_tokenid(_token_id)
-        require(offset < num_buy_orders, "Offset is higher than available buy orders.")
+        self.require(offset < num_buy_orders, "Offset is higher than available buy orders.")
 
         result_dict = {}
         for i in range(0 + offset, min(offset + 100, num_buy_orders)):
@@ -1053,25 +1074,25 @@ class NebulaMultiToken(IconScoreBase):
             quantity = self._get_mp_buy_quantity(_token_id, i)
             address = self._get_buy_tokenid_index_to_address_indexing(_token_id, i).split("_")[0]
             result_dict[i] = [price, quantity, address]
-            #TODO the tokenid index is missing for the accept_buy_order to be accepted.
+            # TODO the tokenid index is missing for the accept_buy_order to be accepted.
         return result_dict
-    
+
     @external
-    def list_own_buy_orders(self, offset: int=0) -> dict:
+    def list_own_buy_orders(self, offset: int = 0) -> dict:
         """
         List all active buy orders for the sender.
         """
         sender = self.msg.sender
         num_buy_orders = self._get_number_buy_orders_per_owner(sender)
-        require(num_buy_orders > 0, "There is no sell order for that address.")
-        require(offset < num_buy_orders, "Offset is higher than available sell orders.")
+        self.require(num_buy_orders > 0, "There is no sell order for that address.")
+        self.require(offset < num_buy_orders, "Offset is higher than available sell orders.")
 
         result_dict = {}
         for i in range(0 + offset, min(offset + 100, num_buy_orders)):
-            mapping = self._get_buy_address_index_to_tokenid_index(sender, i).split("_") #tokenid_index
+            mapping = self._get_buy_address_index_to_tokenid_index(sender, i).split("_")  # tokenid_index
             price = self._get_mp_buy_price(int(mapping[0]), int(mapping[1]))
             quantity = self._get_mp_buy_quantity(int(mapping[0]), int(mapping[1]))
-        
+
             result_dict[i] = [int(mapping[0]), price, quantity]
 
         return result_dict
@@ -1087,21 +1108,22 @@ class NebulaMultiToken(IconScoreBase):
         self._check_that_sale_is_not_restricted()
 
         sender = self.msg.sender
-        require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
-        balance = self.balanceOf(sender, _tokenID)        
+        self.require(self._is_owner_of_token(sender, _tokenID) == True, "Sender does not own the token.")
+        balance = self.balanceOf(sender, _tokenID)
 
         quantity = self._get_mp_buy_quantity(_tokenID, _token_index)
 
-        require(balance - self._get_listed_token_balance_by_owner(sender, _tokenID) >= quantity, "Number of tokens is less than available tokens.")
+        self.require(balance - self._get_listed_token_balance_by_owner(sender, _tokenID) >= quantity,
+                     "Number of tokens is less than available tokens.")
 
         address_index = self._get_buy_tokenid_index_to_address_indexing(_tokenID, _token_index).split("_")
 
         buyer = Address.from_string(address_index[0])
         user_index = address_index[1]
- 
+
         self._remove_buy_order_and_fix_index(buyer, _tokenID, _token_index, user_index)
         self._transfer(sender, buyer, _tokenID, quantity)
-        
+
         token_price = self._get_mp_buy_price(_tokenID, _token_index)
 
         fee = self._calculate_seller_fee(token_price)
@@ -1119,7 +1141,6 @@ class NebulaMultiToken(IconScoreBase):
 
         self.PurchaseToken(sender, buyer, _tokenID)
 
-
     def _remove_buy_order_and_fix_index(self, _address: Address, _token_id: int, _token_index: int, _user_index: int):
         self._set_mp_buy_price(_token_id, _token_index, 0)
         self._set_mp_buy_quantity(_token_id, _token_index, 0)
@@ -1127,8 +1148,10 @@ class NebulaMultiToken(IconScoreBase):
         last_index_tokenid = self._get_number_buy_orders_per_tokenid(_token_id) - 1
         last_index_address = self._get_number_buy_orders_per_owner(_address) - 1
 
-        last_index_tokenid_to_address = self._get_buy_tokenid_index_to_address_indexing(_token_id, last_index_tokenid).split("_")
-        last_index_address_to_tokenid = self._get_buy_address_index_to_tokenid_index(_address, last_index_address).split("_")
+        last_index_tokenid_to_address = self._get_buy_tokenid_index_to_address_indexing(_token_id,
+                                                                                        last_index_tokenid).split("_")
+        last_index_address_to_tokenid = self._get_buy_address_index_to_tokenid_index(_address,
+                                                                                     last_index_address).split("_")
 
         # Set Index Mapping
         self._remove_buy_tokenid_index_to_address_index(_token_id, _token_index)
@@ -1136,12 +1159,14 @@ class NebulaMultiToken(IconScoreBase):
         self._remove_buy_address_index_to_tokenid_index(_address, _user_index)
         self._remove_buy_address_index_to_tokenid_index(_address, last_index_address)
 
-        #TODO Fix setting removed index to last index
+        # TODO Fix setting removed index to last index
         if last_index_tokenid > 0:
-            self._set_buy_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _token_id, _token_index, last_index_tokenid_to_address[1])
-        
+            self._set_buy_tokenid_index_to_address_index(last_index_tokenid_to_address[0], _token_id, _token_index,
+                                                         last_index_tokenid_to_address[1])
+
         if last_index_address > 0:
-            self._set_buy_address_index_to_tokenid_index(_address, last_index_address_to_tokenid[0], last_index_address_to_tokenid[1], _user_index)
+            self._set_buy_address_index_to_tokenid_index(_address, last_index_address_to_tokenid[0],
+                                                         last_index_address_to_tokenid[1], _user_index)
 
         # Decrease sell order count for tokenid and address
         self._decrease_number_buy_orders_per_tokenid(_token_id)
@@ -1153,58 +1178,61 @@ class NebulaMultiToken(IconScoreBase):
 
     def _get_mp_buy_price(self, _tokenID: int, _index: int):
         return self._mp_buy_price_list[_tokenID][_index]
-    
+
     def _set_mp_buy_quantity(self, _tokenID: int, _index: int, _quantity: int):
         self._mp_buy_quantity_list[_tokenID][_index] = _quantity
 
     def _get_mp_buy_quantity(self, _tokenID: int, _index: int):
         return self._mp_buy_quantity_list[_tokenID][_index]
-    
+
     def _increase_number_buy_orders_per_tokenid(self, _tokenID: int):
         self._number_buy_orders_per_tokenid[_tokenID] += 1
-    
+
     def _decrease_number_buy_orders_per_tokenid(self, _tokenID: int):
         self._number_buy_orders_per_tokenid[_tokenID] -= 1
-    
+
     def _get_number_buy_orders_per_tokenid(self, _tokenID: int) -> int:
         return self._number_buy_orders_per_tokenid[_tokenID]
 
     def _increase_number_buy_orders_per_owner(self, _address: Address):
         self._number_buy_orders_per_owner[_address] += 1
-    
+
     def _decrease_number_buy_orders_per_owner(self, _address: Address):
         self._number_buy_orders_per_owner[_address] -= 1
-    
+
     def _get_number_buy_orders_per_owner(self, _address: Address) -> int:
         return self._number_buy_orders_per_owner[_address]
-    
-    def _set_buy_tokenid_index_to_address_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
-        self._index_mapping_purchase[str(_tokenID) + "_" + str(_token_index)] = str(_address) + "_" + str(_user_token_index)
-    
+
+    def _set_buy_tokenid_index_to_address_index(self, _address: Address, _tokenID: int, _token_index: int,
+                                                _user_token_index: int):
+        self._index_mapping_purchase[str(_tokenID) + "_" + str(_token_index)] = str(_address) + "_" + str(
+            _user_token_index)
+
     def _remove_buy_tokenid_index_to_address_index(self, _tokenID: int, _token_index: int):
         self._index_mapping_purchase[str(_tokenID) + "_" + str(_token_index)] = ""
 
     def _get_buy_tokenid_index_to_address_indexing(self, _tokenID: int, _token_index: int) -> str:
         return self._index_mapping_purchase[str(_tokenID) + "_" + str(_token_index)]
 
-    def _set_buy_address_index_to_tokenid_index(self, _address: Address, _tokenID: int, _token_index: int, _user_token_index: int):
-        self._address_index_to_tokenid_index_purchase[str(_address) + "_" + str(_user_token_index)] = str(_tokenID) + "_" + str(_token_index)
-    
+    def _set_buy_address_index_to_tokenid_index(self, _address: Address, _tokenID: int, _token_index: int,
+                                                _user_token_index: int):
+        self._address_index_to_tokenid_index_purchase[str(_address) + "_" + str(_user_token_index)] = str(
+            _tokenID) + "_" + str(_token_index)
+
     def _remove_buy_address_index_to_tokenid_index(self, _address: Address, _user_token_index: int):
         self._address_index_to_tokenid_index_purchase[str(_address) + "_" + str(_user_token_index)] = ""
-    
+
     def _get_buy_address_index_to_tokenid_index(self, _address: Address, _index: int) -> str:
         return self._address_index_to_tokenid_index_purchase[str(_address) + "_" + str(_index)]
-    
+
     def _increase_listed_purchases_per_tokenID_by_owner(self, _address: Address, _tokenID: int):
         self._listed_purchases_per_tokenid_by_owner[_address][_tokenID] += 1
-    
+
     def _decrease_listed_purchases_per_tokenID_by_owner(self, _address: Address, _tokenID: int):
         self._listed_purchases_per_tokenid_by_owner[_address][_tokenID] -= 1
-    
+
     def _get_listed_purchases_per_tokenID_by_owner(self, _address: Address, _tokenID: int):
         return self._listed_purchases_per_tokenid_by_owner[_address][_tokenID]
-    
 
     # ================================================
     #  Exchange
@@ -1236,7 +1264,7 @@ class NebulaMultiToken(IconScoreBase):
             revert("Price can not be negative")
         if _price == 0:
             revert("Price can not be zero")
-    
+
     def _calculate_seller_fee(self, price: int) -> int:
         return price * self._seller_fee.get() / 100000
 
@@ -1267,7 +1295,7 @@ class NebulaMultiToken(IconScoreBase):
 
     def _record_end_time(self, _record_id: int) -> VarDB:
         return VarDB(f'RECORD_{str(_record_id)}_END_TIME', self._db, value_type=int)
-    
+
     def _record_number_tokens(self, _record_id: int) -> VarDB:
         return VarDB(f'RECORD_{str(_record_id)}_NUMBER_TOKENS', self._db, value_type=int)
 
