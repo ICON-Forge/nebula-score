@@ -19,6 +19,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _IS_PAUSED = 'is_paused' # Boolean value that indicates whether a contract is paused
     _IS_RESTRICTED_SALE = 'is_restricted_sale' # Boolean value that indicates if secondary token sales are restricted
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
+    _MEDIA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
     _SELLER_FEE = 'seller_fee' # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
 
@@ -43,6 +44,7 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._minter = VarDB(self._MINTER, db, value_type=Address)
         self._is_paused = VarDB(self._IS_PAUSED, db, value_type=bool)
         self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
+        self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
         self._sale_record_count = VarDB(self._SALE_RECORD_COUNT, db, value_type=int)
         self._seller_fee = VarDB(self._SELLER_FEE, db, value_type=int)
@@ -75,7 +77,11 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self.DepositReceived(self.msg.sender)
 
     def _check_that_sender_is_nft_owner(self, _owner: Address):
-        if self.msg.sender != _owner:
+        if self.msg.sender == _owner:
+            pass
+        elif self.tx.origin == _owner:
+            pass
+        else:
             revert("You do not own this NFT")
 
     def _check_that_contract_is_unpaused(self):
