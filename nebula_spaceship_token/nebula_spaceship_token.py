@@ -75,7 +75,11 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self.DepositReceived(self.msg.sender)
 
     def _check_that_sender_is_nft_owner(self, _owner: Address):
-        if self.msg.sender != _owner:
+        if self.msg.sender == _owner:
+            pass
+        elif self.tx.origin == _owner:
+            pass
+        else:
             revert("You do not own this NFT")
 
     def _check_that_contract_is_unpaused(self):
