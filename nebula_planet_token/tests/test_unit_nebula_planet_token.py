@@ -934,3 +934,12 @@ class TestNebulaPlanetToken(ScoreTestCase):
 
         self.assertEqual(self.score.seller_fee(), 2500)
 
+    def test_approved_contract(self):
+        self.set_msg(self.test_account1)
+        address = Address.from_string(f"cx{'1234' * 10}")
+        self.score.set_approved_contract(address)
+
+        result = self.score.get_approved_contract()
+
+        self.assertEqual(result, address)
+
