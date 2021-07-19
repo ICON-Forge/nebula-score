@@ -21,6 +21,7 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     _METADATA_BASE_URL = 'metadata_base_url' # Base URL that is combined with provided token_URI when token gets minted
     _SALE_RECORD_COUNT = 'sale_record_count'  # Number of sale records (includes successful fixed price sales and all auctions)
     _SELLER_FEE = 'seller_fee' # Percentage that the marketplace takes from each token sale. Number is divided by 100000 to get the percentage value. (e.g 2500 equals 2.5%)
+    _APPROVED_CONTRACT = 'approved_contract' # Address of an approved contract that interact with Nebula contract to approve token transfers.
 
     _MAX_ITERATION_LOOP = 100
     _MINIMUM_BID_INCREMENT = 5
@@ -46,6 +47,7 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         self._metadataBaseURL = VarDB(self._METADATA_BASE_URL, db, value_type=str)
         self._sale_record_count = VarDB(self._SALE_RECORD_COUNT, db, value_type=int)
         self._seller_fee = VarDB(self._SELLER_FEE, db, value_type=int)
+        self._approved_contract = VarDB(self._APPROVED_CONTRACT, db, value_type=Address)
 
         self._db = db
 
@@ -77,7 +79,7 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
     def _check_that_sender_is_nft_owner(self, _owner: Address):
         if self.msg.sender == _owner:
             pass
-        elif self.tx.origin == _owner:
+        elif self.tx.origin == _owner and self.msg.sender == self._approved_contract.get():
             pass
         else:
             revert("You do not own this NFT")
@@ -288,6 +290,22 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
         # Delete token's approved operator
         if _tokenId in self._token_approvals:
             del self._token_approvals[_tokenId]
+
+    @external
+    def set_approved_contract(self, _address: Address):
+        """
+        Sets a contract address that can enable approvals on Nebula SCORE.
+        """
+        if self._director.get() != self.msg.sender:
+            revert('You do not have permission set approved contract address')
+        self._approved_contract.set(_address)
+
+    @external(readonly=True)
+    def get_approved_contract(self) -> Address:
+        """
+        Gets the contract address that can handle approvals on Nebula SCORE.
+        """
+        return self._approved_contract.get()
 
     # ================================================
     #  Metadata extension

@@ -302,6 +302,9 @@ class NebulaPlanetToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
 
     @external(readonly=True)
     def get_approved_contract(self) -> Address:
+        """
+        Gets the contract address that can handle approvals on Nebula SCORE.
+        """
         return self._approved_contract.get()
 
     # ================================================
