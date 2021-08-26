@@ -2,4 +2,4 @@ tbears
 chardet==3.*
 pytest
 iconsdk
-iconservice==1.6.1
+iconservice==1.7.7

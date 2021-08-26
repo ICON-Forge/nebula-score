@@ -1,11 +1,23 @@
-from typing import List
-
 from iconservice import *
 ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
 def require(condition: bool, message: str):
     if not condition:
         revert(message)
+
+class IRC31ReceiverInterface(InterfaceScore):
+    @interface
+    def setOriginator(self, _origin: Address, _approved: bool):
+        pass
+
+    @interface
+    def onIRC31Received(self, _operator: Address, _from: Address, _id: int, _value: int, _data: bytes):
+        pass
+
+    @interface
+    def onIRC31BatchReceived(self, _operator: Address, _from: Address, _ids: List[int], _values: List[int], _data: bytes):
+        pass
+
 
 class NebulaMultiToken(IconScoreBase):
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count per address
@@ -982,7 +994,7 @@ class NebulaMultiToken(IconScoreBase):
             revert(f'Sent ICX amount needs to be greater than 0')
         
         if self.msg.value != _price:
-            revert(f'Sent ICX amount ({self.msg.value}) does not match offer price ({token_price})')
+            revert(f'Sent ICX amount ({self.msg.value}) does not match offer price ({_price})')
 
         sender = self.msg.sender
         

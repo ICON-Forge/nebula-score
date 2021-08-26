@@ -1,4 +1,4 @@
-from ..nebula_multi_token import NebulaMultiToken
+from nebula_multi_token.nebula_multi_token import NebulaMultiToken
 from tbears.libs.scoretest.score_test_case import ScoreTestCase
 from iconservice import *
 
