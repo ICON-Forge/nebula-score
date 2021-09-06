@@ -1066,7 +1066,7 @@ class NebulaMultiToken(IconScoreBase, IRC31Basic, IRC31MintBurn):
         return result_dict
     
     @external
-    def list_own_buy_orders(self, offset: int=0) -> dict:
+    def list_own_buy_orders(self, offset: int = 0) -> dict:
         """
         List all active buy orders for the sender.
         """
@@ -1231,10 +1231,10 @@ class NebulaMultiToken(IconScoreBase, IRC31Basic, IRC31MintBurn):
         """
         pass
 
-    # Todo: Can be removed or replaced:
-    def _check_that_token_is_not_auctioned(self, _token_id):
-        if self._listed_token_prices[str(_token_id)] == -1:
-            revert("Token is currently on auction")
+    # # Todo: Can be removed or replaced:
+    # def _check_that_token_is_not_auctioned(self, _token_id):
+    #     if self._listed_token_prices[str(_token_id)] == -1:
+    #         revert("Token is currently on auction")
 
     def _check_that_sale_is_not_restricted(self):
         if self._is_restricted_sale.get() and not self.msg.sender == self._minter.get():

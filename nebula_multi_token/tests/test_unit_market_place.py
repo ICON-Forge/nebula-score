@@ -128,6 +128,9 @@ class TestMarketPlace(ScoreTestCase):
 
         self.score.cancel_own_sell_order(1, 0)
 
+        self.assertEqual(self.score.list_own_sell_orders(), {})
+
+
     
     def test_purchase_sell_order(self):
         # Mint Tokens
