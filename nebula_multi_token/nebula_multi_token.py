@@ -1,4 +1,5 @@
 from iconservice import *
+from .interfaces import *
 ZERO_ADDRESS = Address.from_prefix_and_int(AddressPrefix.EOA, 0)
 
 def require(condition: bool, message: str):
@@ -19,7 +20,7 @@ class IRC31ReceiverInterface(InterfaceScore):
         pass
 
 
-class NebulaMultiToken(IconScoreBase):
+class NebulaMultiToken(IconScoreBase, IRC31Basic, IRC31MintBurn):
     _OWNED_TOKEN_COUNT = 'owned_token_count'  # Track token count per address
     _OWNED_TOKEN_COUNT_BY_ID = 'owned tokens'  # Track the owned tokens per address, per tokenID
 
@@ -63,8 +64,7 @@ class NebulaMultiToken(IconScoreBase):
         super().__init__(db)
         # id => (owner => balance)
         self._owned_token_count = DictDB(self._OWNED_TOKEN_COUNT, db, value_type=int) #[address]->count
-        self._owned_token_count_by_id = DictDB(self._OWNED_TOKEN_COUNT_BY_ID, db, value_type=int, depth=2) #[address][tokenID]->count
-
+        self._owned_token_count_by_id = DictDB(self._OWNED_TOKEN_COUNT_BY_ID, db, value_type=int, depth=2) #[address][tokenID]->count ( _balances )
 
         # owner => (operator => approved)
         self._operatorApproval = DictDB('approval', db, value_type=bool, depth=2)
@@ -79,6 +79,7 @@ class NebulaMultiToken(IconScoreBase):
         #self._owner_listed_token_balance = DictDB(self._OWNER_LISTED_TOKEN_BALANCE, db, value_type=int, depth=2) # [address][tokenID]
         #self._owner_listed_tokens_count = DictDB(self._OWNER_LISTED_TOKENS_COUNT, db, value_type=int, depth=2) # [address][tokenID]
         self._is_paused = VarDB(self._IS_PAUSED, db, value_type=bool)
+
         self._is_restricted_sale = VarDB(self._IS_RESTRICTED_SALE, db, value_type=bool)
         #self._listed_token_prices = DictDB(self._LISTED_TOKEN_PRICES, db, value_type=int, depth=2) # [address][tokenID]
         self._director = VarDB(self._DIRECTOR, db, value_type=Address)
@@ -239,7 +240,7 @@ class NebulaMultiToken(IconScoreBase):
 
         balances = []
         for i in range(len(_owners)):
-            balances.append(self._balances[_ids[i]][_owners[i]])
+            balances.append(self._owned_token_count_by_id[_ids[i]][_owners[i]])
         return balances
 
     @external
@@ -329,6 +330,11 @@ class NebulaMultiToken(IconScoreBase):
         """
         pass
 
+    @external
+    def transferFromBatch(self, _from: Address, _to: Address, _ids: List[int], _values: List[int], _data: bytes = None):
+        # TODO!
+        pass
+
 
     @external
     def mint(self, _id: int, _supply: int, _uri: str):
@@ -360,18 +366,19 @@ class NebulaMultiToken(IconScoreBase):
         self._minters[_id] = _to
         self._mint(_to, _id, _supply, _uri)
 
-    @external(readonly=True)
-    def getApproved(self, _tokenId: int) -> Address:
-        """
-        Returns the approved address for a single NFT.
-        If there is none, returns the zero address.
-        Throws if _tokenId is not a valid NFT.
-        """
-        self.ownerOf(_tokenId)  # ensure valid token
-        address = self._token_approvals[_tokenId]
-        if address is None:
-            return self._ZERO_ADDRESS
-        return address
+    # TODO: Is this necessary method?
+    # @external(readonly=True)
+    # def getApproved(self, _tokenId: int) -> Address:
+    #     """
+    #     Returns the approved address for a single NFT.
+    #     If there is none, returns the zero address.
+    #     Throws if _tokenId is not a valid NFT.
+    #     """
+    #     self.ownerOf(_tokenId)  # ensure valid token
+    #     address = self._token_approvals[_tokenId]
+    #     if address is None:
+    #         return self._ZERO_ADDRESS
+    #     return address
 
     @external
     def setApprovalForAll(self, _operator: Address, _approved: bool):
@@ -476,6 +483,11 @@ class NebulaMultiToken(IconScoreBase):
         self._create_new_token_index(_id)
         # emit transfer event for Mint semantic
         self.TransferSingle(_owner, ZERO_ADDRESS, _owner, _id, _supply)
+
+    def setTokenURI(self, _id: int, _uri: str):
+        if self._minter.get() != self.msg.sender:
+            revert('You are not allowed to set token URI')
+        self._setTokenURI(_id, _uri)
     
     def _setTokenURI(self, _id: int, _uri: str):
         self._token_URIs[_id] = _uri
@@ -502,7 +514,7 @@ class NebulaMultiToken(IconScoreBase):
         if self._owned_token_count_by_id[_from][_tokenId] > 0:
             return True
         else:
-            False
+            return False
     
     def _get_number_of_token_classes_owned(self, _address: Address) -> int:
         return self._owned_token_count[_address]
@@ -662,10 +674,6 @@ class NebulaMultiToken(IconScoreBase):
             return result
         else:
             return 0
-
-    def _set_token_index(self, _index: int, _token_id: int):
-        self._token_index(_index).set(_token_id)
-        self._token(_token_id).set(_index)
 
     def _remove_token_index(self, _index: int):
         token_id = self._token_index(_index).get()
@@ -971,7 +979,7 @@ class NebulaMultiToken(IconScoreBase):
     def _set_mp_offer_quantity(self, _tokenID: int, _index: int, _quantity: int):
         self._mp_quantity_list[_tokenID][_index] = _quantity
 
-    def _get_mp_offer_quantity(self, _tokenID: int, _index: int):
+    def _get_mp_offer_quantity(self, _tokenID: int, _index: int) -> int:
         return self._mp_quantity_list[_tokenID][_index]
 
     # ================================================
@@ -1098,7 +1106,7 @@ class NebulaMultiToken(IconScoreBase):
         address_index = self._get_buy_tokenid_index_to_address_indexing(_tokenID, _token_index).split("_")
 
         buyer = Address.from_string(address_index[0])
-        user_index = address_index[1]
+        user_index = int(address_index[1])
  
         self._remove_buy_order_and_fix_index(buyer, _tokenID, _token_index, user_index)
         self._transfer(sender, buyer, _tokenID, quantity)
