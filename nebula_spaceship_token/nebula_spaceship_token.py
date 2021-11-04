@@ -564,7 +564,7 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             token_id = self.get_listed_token_by_index(x)
             price = self.get_token_price(token_id)
             if token_id and price:
-                tokens[token_id] = price
+                tokens[str(token_id)] = price # Convert tokenId to string so it can be used as key
         return tokens
 
     @external(readonly=True)
@@ -590,7 +590,7 @@ class NebulaSpaceshipToken(IconScoreBase, IRC3, IRC3Metadata, IRC3Enumerable):
             token_id = self.get_listed_token_of_owner_by_index(_owner, x)
             price = self.get_token_price(token_id)
             if token_id and price:
-                tokens[token_id] = price
+                tokens[str(token_id)] = price # Convert tokenId to string so it can be used as key
         return tokens
 
     @external
